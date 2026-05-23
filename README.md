@@ -1,7 +1,7 @@
 # Redis for Windows on MSYS2
 
-> **Note** This project is under development.
-> **Development use only** This repository and its release artifacts are intended for development and testing scenarios.
+> **This repository is under development.**  
+> **This repository and its release artifacts are intended for development and testing scenarios.**
 
 [![Build](https://github.com/taizod1024/redis-windows/actions/workflows/build-redis.yml/badge.svg)](https://github.com/taizod1024/redis-windows/actions)
 [![Release](https://img.shields.io/github/v/release/taizod1024/redis-windows)](https://github.com/taizod1024/redis-windows/releases)
