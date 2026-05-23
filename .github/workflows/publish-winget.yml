@@ -95,6 +95,11 @@ jobs:
           WINGET_TOKEN: ${{ secrets.WINGET_GITHUB_TOKEN || secrets.GH_PAT || github.token }}
         run: |
           $id = $env:PACKAGE_IDENTIFIER
+          $publisher = $env:PACKAGE_PUBLISHER
+          $packageName = $env:PACKAGE_NAME
+          $shortDescription = $env:PACKAGE_SHORT_DESCRIPTION
+          $license = $env:PACKAGE_LICENSE
+          $licenseUrl = $env:PACKAGE_LICENSE_URL
           $version = "${{ steps.release.outputs.version }}"
           $url = "${{ steps.release.outputs.asset_url }}"
 
@@ -105,26 +110,45 @@ jobs:
           Write-Output "Submitting to winget: $id $version"
           Write-Output "Installer URL: $url"
 
-          .\wingetcreate.exe update $id --urls $url --version $version --submit --token $env:WINGET_TOKEN
+          .\wingetcreate.exe update --urls $url --version $version $id --submit --token $env:WINGET_TOKEN
 
           if ($LASTEXITCODE -eq 0) {
             Write-Output "Updated existing package successfully."
             exit 0
           }
 
-          Write-Output "Package update failed. Trying new package registration..."
+          Write-Output "Package update failed. Trying first-time package registration flow..."
 
-          .\wingetcreate.exe new $url `
-            --id $id `
-            --version $version `
-            --publisher "$env:PACKAGE_PUBLISHER" `
-            --package "$env:PACKAGE_NAME" `
-            --short-description "$env:PACKAGE_SHORT_DESCRIPTION" `
-            --license "$env:PACKAGE_LICENSE" `
-            --license-url "$env:PACKAGE_LICENSE_URL" `
-            --submit `
-            --token $env:WINGET_TOKEN
+          $manifestDir = Join-Path $pwd "winget-manifests"
+          if (Test-Path $manifestDir) {
+            Remove-Item -Path $manifestDir -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $manifestDir | Out-Null
+
+          .\wingetcreate.exe new --out $manifestDir $url
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to generate manifest for new package registration."
+          }
+
+          $manifestFiles = Get-ChildItem -Path $manifestDir -Recurse -File -Filter *.yaml
+          if (-not $manifestFiles) {
+            throw "No manifest yaml files were generated."
+          }
+
+          foreach ($file in $manifestFiles) {
+            $content = Get-Content -Raw $file.FullName
+            $content = $content -replace '(?m)^PackageIdentifier:\s*.*$', "PackageIdentifier: $id"
+            $content = $content -replace '(?m)^PackageVersion:\s*.*$', "PackageVersion: $version"
+            $content = $content -replace '(?m)^PackageName:\s*.*$', "PackageName: $packageName"
+            $content = $content -replace '(?m)^Publisher:\s*.*$', "Publisher: $publisher"
+            $content = $content -replace '(?m)^ShortDescription:\s*.*$', "ShortDescription: $shortDescription"
+            $content = $content -replace '(?m)^License:\s*.*$', "License: $license"
+            $content = $content -replace '(?m)^LicenseUrl:\s*.*$', "LicenseUrl: $licenseUrl"
+            Set-Content -Path $file.FullName -Value $content
+          }
+
+          .\wingetcreate.exe submit --prtitle "Add $id version $version" --token $env:WINGET_TOKEN --no-open $manifestDir
 
           if ($LASTEXITCODE -ne 0) {
-            throw "Failed to submit package to winget-pkgs."
+            throw "Failed to submit new package manifest to winget-pkgs."
           }
