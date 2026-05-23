@@ -32,8 +32,12 @@ jobs:
     steps:
       - name: Validate winget configuration
         run: |
-          if ([string]::IsNullOrWhiteSpace("${{ secrets.WINGET_GITHUB_TOKEN }}")) {
-            throw "Repository secret 'WINGET_GITHUB_TOKEN' is required."
+          $tokenSource = "${{ secrets.WINGET_GITHUB_TOKEN }}"
+          if ([string]::IsNullOrWhiteSpace($tokenSource)) {
+            $tokenSource = "${{ secrets.GH_PAT }}"
+          }
+          if ([string]::IsNullOrWhiteSpace($tokenSource)) {
+            Write-Output "WINGET_GITHUB_TOKEN/GH_PAT is not set. Fallback to github.token will be used."
           }
 
       - name: Resolve release asset URL
@@ -88,11 +92,15 @@ jobs:
 
       - name: Submit package to winget-pkgs
         env:
-          WINGET_TOKEN: ${{ secrets.WINGET_GITHUB_TOKEN }}
+          WINGET_TOKEN: ${{ secrets.WINGET_GITHUB_TOKEN || secrets.GH_PAT || github.token }}
         run: |
           $id = $env:PACKAGE_IDENTIFIER
           $version = "${{ steps.release.outputs.version }}"
           $url = "${{ steps.release.outputs.asset_url }}"
+
+          if ([string]::IsNullOrWhiteSpace($env:WINGET_TOKEN)) {
+            throw "No GitHub token is available for winget submission."
+          }
 
           Write-Output "Submitting to winget: $id $version"
           Write-Output "Installer URL: $url"

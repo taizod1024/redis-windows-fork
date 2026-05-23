@@ -52,9 +52,12 @@ Portable package policy:
 - The intended user experience is that `winget install` enables immediate command use (`redis-server`).
 - If winget-pkgs review requests manifest adjustments (for example command aliases), update the generated PR accordingly.
 
-Required repository secret:
+Recommended repository secret:
 
 - `WINGET_GITHUB_TOKEN`: GitHub personal access token that can create PRs against `microsoft/winget-pkgs`.
+- `GH_PAT`: alternative secret name (used when `WINGET_GITHUB_TOKEN` is not set).
+
+If neither secret is configured, the workflow falls back to the default `${{ github.token }}`.
 
 Optional repository variables (workflow defaults are used when omitted):
 
