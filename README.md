@@ -1,4 +1,4 @@
-# Redis for Windows (MSYS2)
+# Redis for Windows on MSYS2
 
 > **Note** This project is under development.
 
