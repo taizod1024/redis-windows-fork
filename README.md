@@ -34,45 +34,6 @@ redis-server.exe /c/config/redis.conf --dir /d/data --port 6379
 - Runtime: MSYS2
 - Path handling: use MSYS2 POSIX-style paths on command line
 
-## winget Registration
-
-This repository includes an automated workflow for winget registration: `.github/workflows/publish-winget.yml`.
-
-Behavior:
-
-- Trigger: when a release is published.
-- Target asset: the first release asset matching `*-msys2.zip`.
-- Submission flow:
-  - tries `wingetcreate update` first (for existing package IDs)
-  - falls back to `wingetcreate new` when the package is not yet registered
-
-Portable package policy:
-
-- The submission uses the zip artifact as the package source.
-- The intended user experience is that `winget install` enables immediate command use (`redis-server`).
-- If winget-pkgs review requests manifest adjustments (for example command aliases), update the generated PR accordingly.
-
-Recommended repository secret:
-
-- `WINGET_GITHUB_TOKEN`: GitHub personal access token that can create PRs against `microsoft/winget-pkgs`.
-- `GH_PAT`: alternative secret name (used when `WINGET_GITHUB_TOKEN` is not set).
-
-If neither secret is configured, the workflow falls back to the default `${{ github.token }}`.
-
-Optional repository variables (workflow defaults are used when omitted):
-
-- Package Identifier is fixed in workflow: `taizod1024.redis-windows`
-- Publisher is fixed in workflow: `taizod1024`
-- `WINGET_PACKAGE_NAME` (example: `Redis for Windows (MSYS2)`)
-- `WINGET_PACKAGE_SHORT_DESCRIPTION`
-- `WINGET_PACKAGE_LICENSE` (example: `MIT`)
-- `WINGET_PACKAGE_LICENSE_URL` (example: `https://github.com/redis-windows/redis-windows/blob/main/LICENSE`)
-
-Notes:
-
-- Pre-releases are skipped.
-- Use a stable version tag for winget publication.
-
 ## Disclaimer
 
 This project is not affiliated with, endorsed by, or sponsored by Redis Ltd. The license provided here applies only to this repository, not to the official Redis project.
