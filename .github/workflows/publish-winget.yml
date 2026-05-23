@@ -1,0 +1,106 @@
+name: Publish to winget
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  submit-winget:
+    # Skip prerelease tags because winget-pkgs only accepts stable versions.
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: windows-latest
+    env:
+      PACKAGE_IDENTIFIER: ${{ vars.WINGET_PACKAGE_IDENTIFIER }}
+      PACKAGE_PUBLISHER: ${{ vars.WINGET_PACKAGE_PUBLISHER }}
+      PACKAGE_NAME: ${{ vars.WINGET_PACKAGE_NAME }}
+      PACKAGE_SHORT_DESCRIPTION: ${{ vars.WINGET_PACKAGE_SHORT_DESCRIPTION }}
+      PACKAGE_LICENSE: ${{ vars.WINGET_PACKAGE_LICENSE }}
+      PACKAGE_LICENSE_URL: ${{ vars.WINGET_PACKAGE_LICENSE_URL }}
+
+    steps:
+      - name: Validate winget configuration
+        run: |
+          $required = @(
+            "PACKAGE_IDENTIFIER",
+            "PACKAGE_PUBLISHER",
+            "PACKAGE_NAME",
+            "PACKAGE_SHORT_DESCRIPTION",
+            "PACKAGE_LICENSE",
+            "PACKAGE_LICENSE_URL"
+          )
+
+          foreach ($key in $required) {
+            $value = [Environment]::GetEnvironmentVariable($key)
+            if ([string]::IsNullOrWhiteSpace($value)) {
+              throw "Repository variable '$key' is required."
+            }
+          }
+
+          if ([string]::IsNullOrWhiteSpace("${{ secrets.WINGET_GITHUB_TOKEN }}")) {
+            throw "Repository secret 'WINGET_GITHUB_TOKEN' is required."
+          }
+
+      - name: Resolve release asset URL
+        id: release
+        run: |
+          $event = Get-Content -Raw $env:GITHUB_EVENT_PATH | ConvertFrom-Json
+          $tag = $event.release.tag_name
+
+          if ([string]::IsNullOrWhiteSpace($tag)) {
+            throw "Unable to resolve release tag from event payload."
+          }
+
+          $version = $tag.TrimStart('v')
+          $asset = $event.release.assets | Where-Object { $_.name -like "*-msys2.zip" } | Select-Object -First 1
+
+          if (-not $asset) {
+            throw "No release asset matched '*-msys2.zip'."
+          }
+
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "asset_name=$($asset.name)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "asset_url=$($asset.browser_download_url)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Install wingetcreate
+        run: |
+          Invoke-WebRequest -Uri "https://aka.ms/wingetcreate/latest" -OutFile wingetcreate.exe
+          .\wingetcreate.exe --version
+
+      - name: Submit package to winget-pkgs
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_GITHUB_TOKEN }}
+        run: |
+          $id = $env:PACKAGE_IDENTIFIER
+          $version = "${{ steps.release.outputs.version }}"
+          $url = "${{ steps.release.outputs.asset_url }}"
+
+          Write-Output "Submitting to winget: $id $version"
+          Write-Output "Installer URL: $url"
+
+          .\wingetcreate.exe update $id --urls $url --version $version --submit --token $env:WINGET_TOKEN
+
+          if ($LASTEXITCODE -eq 0) {
+            Write-Output "Updated existing package successfully."
+            exit 0
+          }
+
+          Write-Output "Package update failed. Trying new package registration..."
+
+          .\wingetcreate.exe new $url `
+            --id $id `
+            --version $version `
+            --publisher "$env:PACKAGE_PUBLISHER" `
+            --package "$env:PACKAGE_NAME" `
+            --short-description "$env:PACKAGE_SHORT_DESCRIPTION" `
+            --license "$env:PACKAGE_LICENSE" `
+            --license-url "$env:PACKAGE_LICENSE_URL" `
+            --submit `
+            --token $env:WINGET_TOKEN
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to submit package to winget-pkgs."
+          }
