@@ -56,10 +56,10 @@ Required repository secret:
 
 - `WINGET_GITHUB_TOKEN`: GitHub personal access token that can create PRs against `microsoft/winget-pkgs`.
 
-Required repository variables:
+Optional repository variables (workflow defaults are used when omitted):
 
 - Package Identifier is fixed in workflow: `taizod1024.redis-windows`
-- `WINGET_PACKAGE_PUBLISHER` (example: `redis-windows`)
+- Publisher is fixed in workflow: `taizod1024`
 - `WINGET_PACKAGE_NAME` (example: `Redis for Windows (MSYS2)`)
 - `WINGET_PACKAGE_SHORT_DESCRIPTION`
 - `WINGET_PACKAGE_LICENSE` (example: `MIT`)

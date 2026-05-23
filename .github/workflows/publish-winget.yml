@@ -23,30 +23,15 @@ jobs:
     runs-on: windows-latest
     env:
       PACKAGE_IDENTIFIER: taizod1024.redis-windows
-      PACKAGE_PUBLISHER: ${{ vars.WINGET_PACKAGE_PUBLISHER }}
-      PACKAGE_NAME: ${{ vars.WINGET_PACKAGE_NAME }}
-      PACKAGE_SHORT_DESCRIPTION: ${{ vars.WINGET_PACKAGE_SHORT_DESCRIPTION }}
-      PACKAGE_LICENSE: ${{ vars.WINGET_PACKAGE_LICENSE }}
-      PACKAGE_LICENSE_URL: ${{ vars.WINGET_PACKAGE_LICENSE_URL }}
+      PACKAGE_PUBLISHER: taizod1024
+      PACKAGE_NAME: ${{ vars.WINGET_PACKAGE_NAME || 'redis-windows' }}
+      PACKAGE_SHORT_DESCRIPTION: ${{ vars.WINGET_PACKAGE_SHORT_DESCRIPTION || 'Redis for Windows on MSYS2 runtime' }}
+      PACKAGE_LICENSE: ${{ vars.WINGET_PACKAGE_LICENSE || 'MIT' }}
+      PACKAGE_LICENSE_URL: ${{ vars.WINGET_PACKAGE_LICENSE_URL || 'https://github.com/taizod1024/redis-windows/blob/main/LICENSE' }}
 
     steps:
       - name: Validate winget configuration
         run: |
-          $required = @(
-            "PACKAGE_PUBLISHER",
-            "PACKAGE_NAME",
-            "PACKAGE_SHORT_DESCRIPTION",
-            "PACKAGE_LICENSE",
-            "PACKAGE_LICENSE_URL"
-          )
-
-          foreach ($key in $required) {
-            $value = [Environment]::GetEnvironmentVariable($key)
-            if ([string]::IsNullOrWhiteSpace($value)) {
-              throw "Workflow setting '$key' is required."
-            }
-          }
-
           if ([string]::IsNullOrWhiteSpace("${{ secrets.WINGET_GITHUB_TOKEN }}")) {
             throw "Repository secret 'WINGET_GITHUB_TOKEN' is required."
           }
