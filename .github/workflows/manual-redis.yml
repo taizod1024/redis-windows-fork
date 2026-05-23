@@ -3,10 +3,14 @@ name: Manual Build Redis
 on:
   workflow_dispatch:
     inputs:
+      use_latest_tag:
+        description: "Use latest Redis tag"
+        default: true
+        type: boolean
       tag_name:
         description: "Redis Version"
-        required: true
-        default: "8.6.3"
+        required: false
+        default: ""
         type: string
       make_latest:
         description: "Mark as Latest Release"
@@ -21,6 +25,7 @@ jobs:
   build-redis:
     uses: ./.github/workflows/build-redis.yml
     with:
+      use_latest_tag: ${{ inputs.use_latest_tag }}
       release_version: ${{ inputs.tag_name }}
       make_latest: ${{ inputs.make_latest }}
       prerelease: ${{ inputs.prerelease }}
