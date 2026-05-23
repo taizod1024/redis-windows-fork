@@ -4,16 +4,16 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Redis Version'
+        description: "Redis Version"
         required: true
-        default: "7.0.14"
+        default: "8.6.3"
         type: string
       make_latest:
-        description: 'Mark as Latest Release'
+        description: "Mark as Latest Release"
         default: false
         type: boolean
       prerelease:
-        description: 'Mark as Pre-release'
+        description: "Mark as Pre-release"
         default: false
         type: boolean
 
