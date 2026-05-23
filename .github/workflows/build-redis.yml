@@ -19,6 +19,9 @@ on:
         description: "The version of Redis being built"
         value: ${{ jobs.prepare.outputs.release_version }}
 
+permissions:
+  contents: write
+
 jobs:
   prepare:
     runs-on: windows-latest
