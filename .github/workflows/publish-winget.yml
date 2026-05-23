@@ -19,7 +19,7 @@ env:
 jobs:
   submit-winget:
     # Skip prerelease tags because winget-pkgs only accepts stable versions.
-    if: ${{ !github.event.release.prerelease }}
+    if: ${{ github.event_name == 'workflow_dispatch' || !github.event.release.prerelease }}
     runs-on: windows-latest
     env:
       PACKAGE_IDENTIFIER: taizod1024.redis-windows
