@@ -116,6 +116,8 @@ jobs:
           cd $workspace
           mkdir -p ${{ env.REDIS_DIST }}-msys2
           find redis-${{ env.RELEASE_VERSION }} -mindepth 1 -maxdepth 2 -type f -regex '.*\(\.exe\|\.conf\)' -exec cp -f "{}" "${{ env.REDIS_DIST }}-msys2" \;
+          cp redis-${{ env.RELEASE_VERSION }}/LICENSE.txt ${{ env.REDIS_DIST }}-msys2/LICENSE.txt
+          cp redis-${{ env.RELEASE_VERSION }}/REDISCONTRIBUTIONS.txt ${{ env.REDIS_DIST }}-msys2/REDISCONTRIBUTIONS.txt
           cp /usr/bin/msys-2.0.dll /usr/bin/msys-crypto-3.dll /usr/bin/msys-ssl-3.dll /usr/bin/msys-gcc_s-seh-1.dll /usr/bin/msys-stdc++-6.dll ${{ env.REDIS_DIST }}-msys2
           sed -i 's/pidfile \/var\/run/pidfile ./' ${{ env.REDIS_DIST }}-msys2/redis.conf
           zip -q -r ${{ env.REDIS_DIST }}-msys2.zip ${{ env.REDIS_DIST }}-msys2
@@ -178,6 +180,9 @@ jobs:
           "`nHashes" | Out-File -Append -FilePath release_body.txt
           "=========" | Out-File -Append -FilePath release_body.txt
           Get-Content -Path redis-msys2-builds/hashes-msys2.txt | Out-File -Append -FilePath release_body.txt
+
+          # Add bundled license information
+          "`nIncluded license files: LICENSE.txt, REDISCONTRIBUTIONS.txt" | Out-File -Append -FilePath release_body.txt
 
           # Add workflow information
           "From workflow: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" | Out-File -Append -FilePath release_body.txt
