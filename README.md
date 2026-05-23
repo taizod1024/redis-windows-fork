@@ -5,7 +5,7 @@
 [![Build](https://github.com/taizod1024/redis-windows/actions/workflows/build-redis.yml/badge.svg)](https://github.com/taizod1024/redis-windows/actions)
 [![Release](https://img.shields.io/github/v/release/taizod1024/redis-windows)](https://github.com/taizod1024/redis-windows/releases)
 
-Compiled from official Redis source for Windows, and packaged to run with MSYS2 runtime.
+Compiled from [official Redis source](https://github.com/redis/redis) for Windows, and packaged to run with MSYS2 runtime.
 
 ## Origin and Modifications
 
@@ -13,9 +13,9 @@ Compiled from official Redis source for Windows, and packaged to run with MSYS2 
 - Upstream source: Redis source code is downloaded from the official Redis repository during CI builds.
 - Scope in this fork:
   - MSYS2-only build and packaging.
-  - Service management support removed.
-  - .NET/C# wrapper components removed to keep the repository focused on Redis build artifacts.
-  - Unnecessary files and workflows outside this scope removed.
+  - Service management support is out of scope.
+  - .NET/C# wrapper components are out of scope to keep the repository focused on Redis build artifacts.
+  - Only the necessary files and workflows are kept for this scope.
 
 ## Usage
 
