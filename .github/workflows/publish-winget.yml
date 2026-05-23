@@ -24,10 +24,10 @@ jobs:
     env:
       PACKAGE_IDENTIFIER: taizod1024.redis-windows
       PACKAGE_PUBLISHER: taizod1024
-      PACKAGE_NAME: ${{ vars.WINGET_PACKAGE_NAME || 'redis-windows' }}
-      PACKAGE_SHORT_DESCRIPTION: ${{ vars.WINGET_PACKAGE_SHORT_DESCRIPTION || 'Redis for Windows on MSYS2 runtime' }}
-      PACKAGE_LICENSE: ${{ vars.WINGET_PACKAGE_LICENSE || 'MIT' }}
-      PACKAGE_LICENSE_URL: ${{ vars.WINGET_PACKAGE_LICENSE_URL || 'https://github.com/taizod1024/redis-windows/blob/main/LICENSE' }}
+      PACKAGE_NAME: ${{ vars.WINGET_PACKAGE_NAME }}
+      PACKAGE_SHORT_DESCRIPTION: ${{ vars.WINGET_PACKAGE_SHORT_DESCRIPTION }}
+      PACKAGE_LICENSE: ${{ vars.WINGET_PACKAGE_LICENSE }}
+      PACKAGE_LICENSE_URL: ${{ vars.WINGET_PACKAGE_LICENSE_URL }}
 
     steps:
       - name: Validate winget configuration
@@ -96,10 +96,10 @@ jobs:
         run: |
           $id = $env:PACKAGE_IDENTIFIER
           $publisher = $env:PACKAGE_PUBLISHER
-          $packageName = $env:PACKAGE_NAME
-          $shortDescription = $env:PACKAGE_SHORT_DESCRIPTION
-          $license = $env:PACKAGE_LICENSE
-          $licenseUrl = $env:PACKAGE_LICENSE_URL
+          $packageName = if ([string]::IsNullOrWhiteSpace($env:PACKAGE_NAME)) { "redis-windows" } else { $env:PACKAGE_NAME }
+          $shortDescription = if ([string]::IsNullOrWhiteSpace($env:PACKAGE_SHORT_DESCRIPTION)) { "Redis for Windows on MSYS2 runtime" } else { $env:PACKAGE_SHORT_DESCRIPTION }
+          $license = if ([string]::IsNullOrWhiteSpace($env:PACKAGE_LICENSE)) { "MIT" } else { $env:PACKAGE_LICENSE }
+          $licenseUrl = if ([string]::IsNullOrWhiteSpace($env:PACKAGE_LICENSE_URL)) { "https://github.com/taizod1024/redis-windows/blob/main/LICENSE" } else { $env:PACKAGE_LICENSE_URL }
           $version = "${{ steps.release.outputs.version }}"
           $url = "${{ steps.release.outputs.asset_url }}"
 
