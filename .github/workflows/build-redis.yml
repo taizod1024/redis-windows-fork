@@ -4,8 +4,13 @@ on:
   workflow_call:
     inputs:
       release_version:
-        required: true
+        required: false
+        default: ""
         type: string
+      use_latest_tag:
+        required: false
+        type: boolean
+        default: false
       make_latest:
         required: false
         type: boolean
@@ -33,7 +38,21 @@ jobs:
       - name: Setup environment
         id: setup
         run: |
-          $version = "${{ inputs.release_version }}"
+          $requestedVersion = "${{ inputs.release_version }}".Trim()
+          $useLatestTag = "${{ inputs.use_latest_tag }}" -eq "true"
+
+          if ($useLatestTag) {
+            $latestInfo = ConvertFrom-Json(Invoke-WebRequest -Headers @{'Authorization' = 'Bearer ${{ secrets.GITHUB_TOKEN }}'} -Uri "https://api.github.com/repos/redis/redis/releases/latest").Content
+            $version = $latestInfo.tag_name
+            Write-Output "Using latest Redis tag: $version"
+          }
+          else {
+            if ([string]::IsNullOrWhiteSpace($requestedVersion)) {
+              throw "release_version is required when use_latest_tag is false."
+            }
+            $version = $requestedVersion
+          }
+
           Add-Content -Path $env:GITHUB_ENV -Value "RELEASE_VERSION=$version"
           Add-Content -Path $env:GITHUB_ENV -Value "REDIS_DIST=Redis-$version-Windows-x64"
 
