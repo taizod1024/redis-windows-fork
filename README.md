@@ -58,7 +58,7 @@ Required repository secret:
 
 Required repository variables:
 
-- `WINGET_PACKAGE_IDENTIFIER` (example: `RedisWindows.RedisWindowsMSYS2`)
+- Package Identifier is fixed in workflow: `taizod1024.redis-windows`
 - `WINGET_PACKAGE_PUBLISHER` (example: `redis-windows`)
 - `WINGET_PACKAGE_NAME` (example: `Redis for Windows (MSYS2)`)
 - `WINGET_PACKAGE_SHORT_DESCRIPTION`

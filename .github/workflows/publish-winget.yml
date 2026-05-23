@@ -22,7 +22,7 @@ jobs:
     if: ${{ !github.event.release.prerelease }}
     runs-on: windows-latest
     env:
-      PACKAGE_IDENTIFIER: ${{ vars.WINGET_PACKAGE_IDENTIFIER }}
+      PACKAGE_IDENTIFIER: taizod1024.redis-windows
       PACKAGE_PUBLISHER: ${{ vars.WINGET_PACKAGE_PUBLISHER }}
       PACKAGE_NAME: ${{ vars.WINGET_PACKAGE_NAME }}
       PACKAGE_SHORT_DESCRIPTION: ${{ vars.WINGET_PACKAGE_SHORT_DESCRIPTION }}
@@ -33,7 +33,6 @@ jobs:
       - name: Validate winget configuration
         run: |
           $required = @(
-            "PACKAGE_IDENTIFIER",
             "PACKAGE_PUBLISHER",
             "PACKAGE_NAME",
             "PACKAGE_SHORT_DESCRIPTION",
@@ -44,7 +43,7 @@ jobs:
           foreach ($key in $required) {
             $value = [Environment]::GetEnvironmentVariable($key)
             if ([string]::IsNullOrWhiteSpace($value)) {
-              throw "Repository variable '$key' is required."
+              throw "Workflow setting '$key' is required."
             }
           }
 
