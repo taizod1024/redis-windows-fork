@@ -7,6 +7,9 @@ on:
 permissions:
   contents: read
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   submit-winget:
     # Skip prerelease tags because winget-pkgs only accepts stable versions.
