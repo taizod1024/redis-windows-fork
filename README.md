@@ -1,9 +1,11 @@
-# Redis for Windows
+# Redis for Windows (MSYS2)
 
-[![Build](https://github.com/redis-windows/redis-windows/actions/workflows/build-redis.yml/badge.svg)](https://github.com/redis-windows/redis-windows/actions)
-[![Release](https://img.shields.io/github/v/release/redis-windows/redis-windows)](https://github.com/redis-windows/redis-windows/releases)
+> **Note** This project is under development.
 
-Compiled from official Redis source for Windows.
+[![Build](https://github.com/taizod1024/redis-windows/actions/workflows/build-redis.yml/badge.svg)](https://github.com/taizod1024/redis-windows/actions)
+[![Release](https://img.shields.io/github/v/release/taizod1024/redis-windows)](https://github.com/taizod1024/redis-windows/releases)
+
+Compiled from official Redis source for Windows, and packaged to run with MSYS2 runtime.
 
 ## Origin and Modifications
 
@@ -15,14 +17,9 @@ Compiled from official Redis source for Windows.
   - .NET/C# wrapper components removed to keep the repository focused on Redis build artifacts.
   - Unnecessary files and workflows outside this scope removed.
 
-## Quick Start
-
-```cmd
-# After download and extract
-redis-server.exe redis.conf
-```
-
 ## Usage
+
+For baseline usage and context, refer to [redis-windows/redis-windows](https://github.com/redis-windows/redis-windows).
 
 Use MSYS2 POSIX paths (`/c/...`, `/d/...`) on the command line.
 
