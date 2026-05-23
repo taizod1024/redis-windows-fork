@@ -1,0 +1,5 @@
+- This repository is a fork of redis-windows/redis-windows.
+- This repository is an MSYS2-only version.
+- Service management is not required.
+- The license follows redis-windows/redis-windows.
+- Unnecessary files and workflows outside this scope should be removed.
