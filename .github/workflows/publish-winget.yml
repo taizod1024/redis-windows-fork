@@ -3,6 +3,12 @@ name: Publish to winget
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to submit (example: 8.6.3 or v8.6.3)"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -49,15 +55,38 @@ jobs:
       - name: Resolve release asset URL
         id: release
         run: |
-          $event = Get-Content -Raw $env:GITHUB_EVENT_PATH | ConvertFrom-Json
-          $tag = $event.release.tag_name
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $tag = "${{ inputs.release_tag }}"
+            if ([string]::IsNullOrWhiteSpace($tag)) {
+              throw "workflow_dispatch requires release_tag input."
+            }
+
+            $releaseApiUrl = "https://api.github.com/repos/${{ github.repository }}/releases/tags/$tag"
+            $event = Invoke-RestMethod -Headers @{
+              Authorization = "Bearer ${{ secrets.GITHUB_TOKEN }}"
+              "User-Agent" = "redis-windows-msys2-winget"
+            } -Uri $releaseApiUrl
+          }
+          else {
+            $event = Get-Content -Raw $env:GITHUB_EVENT_PATH | ConvertFrom-Json
+          }
+
+          $tag = $event.tag_name
+          if ([string]::IsNullOrWhiteSpace($tag)) {
+            $tag = $event.release.tag_name
+          }
 
           if ([string]::IsNullOrWhiteSpace($tag)) {
             throw "Unable to resolve release tag from event payload."
           }
 
           $version = $tag.TrimStart('v')
-          $asset = $event.release.assets | Where-Object { $_.name -like "*-msys2.zip" } | Select-Object -First 1
+          $assets = $event.assets
+          if (-not $assets) {
+            $assets = $event.release.assets
+          }
+
+          $asset = $assets | Where-Object { $_.name -like "*-msys2.zip" } | Select-Object -First 1
 
           if (-not $asset) {
             throw "No release asset matched '*-msys2.zip'."
