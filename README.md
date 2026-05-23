@@ -10,9 +10,9 @@ Compiled from [official Redis source](https://github.com/redis/redis) for Window
 
 ## Origin and Modifications
 
-- Origin: This repository is a fork of [redis-windows/redis-windows](https://github.com/redis-windows/redis-windows).
-- Upstream source: Redis source code is downloaded from the official Redis repository during CI builds.
-- Scope in this fork:
+- **Origin:** This repository is a fork of [redis-windows/redis-windows](https://github.com/redis-windows/redis-windows).
+- **Upstream source:** Redis source code is downloaded from the official Redis repository during CI builds.
+- **Scope in this fork:**
   - MSYS2-only build and packaging.
   - Service management support is out of scope.
   - .NET/C# wrapper components are out of scope to keep the repository focused on Redis build artifacts.
