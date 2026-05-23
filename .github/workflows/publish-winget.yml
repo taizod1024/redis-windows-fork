@@ -125,27 +125,53 @@ jobs:
           }
           New-Item -ItemType Directory -Path $manifestDir | Out-Null
 
-          .\wingetcreate.exe new --out $manifestDir $url
-          if ($LASTEXITCODE -ne 0) {
-            throw "Failed to generate manifest for new package registration."
-          }
+          $installerPath = Join-Path $manifestDir "installer.zip"
+          Invoke-WebRequest -Uri $url -OutFile $installerPath
+          $sha256 = (Get-FileHash -Path $installerPath -Algorithm SHA256).Hash
 
-          $manifestFiles = Get-ChildItem -Path $manifestDir -Recurse -File -Filter *.yaml
-          if (-not $manifestFiles) {
-            throw "No manifest yaml files were generated."
-          }
+          $packagePath = Join-Path $manifestDir "manifests/t/taizod1024/redis-windows/$version"
+          New-Item -ItemType Directory -Path $packagePath -Force | Out-Null
 
-          foreach ($file in $manifestFiles) {
-            $content = Get-Content -Raw $file.FullName
-            $content = $content -replace '(?m)^PackageIdentifier:\s*.*$', "PackageIdentifier: $id"
-            $content = $content -replace '(?m)^PackageVersion:\s*.*$', "PackageVersion: $version"
-            $content = $content -replace '(?m)^PackageName:\s*.*$', "PackageName: $packageName"
-            $content = $content -replace '(?m)^Publisher:\s*.*$', "Publisher: $publisher"
-            $content = $content -replace '(?m)^ShortDescription:\s*.*$', "ShortDescription: $shortDescription"
-            $content = $content -replace '(?m)^License:\s*.*$', "License: $license"
-            $content = $content -replace '(?m)^LicenseUrl:\s*.*$', "LicenseUrl: $licenseUrl"
-            Set-Content -Path $file.FullName -Value $content
-          }
+          $versionManifestPath = Join-Path $packagePath "taizod1024.redis-windows.yaml"
+          $installerManifestPath = Join-Path $packagePath "taizod1024.redis-windows.installer.yaml"
+          $localeManifestPath = Join-Path $packagePath "taizod1024.redis-windows.locale.en-US.yaml"
+
+          @"
+PackageIdentifier: $id
+PackageVersion: $version
+DefaultLocale: en-US
+ManifestType: version
+ManifestVersion: 1.10.0
+"@ | Set-Content -Path $versionManifestPath
+
+          @"
+PackageIdentifier: $id
+PackageVersion: $version
+InstallerType: zip
+NestedInstallerType: portable
+NestedInstallerFiles:
+  - RelativeFilePath: Redis-$version-Windows-x64-msys2/redis-server.exe
+    PortableCommandAlias: redis-server
+Installers:
+  - Architecture: x64
+    InstallerUrl: $url
+    InstallerSha256: $sha256
+ManifestType: installer
+ManifestVersion: 1.10.0
+"@ | Set-Content -Path $installerManifestPath
+
+          @"
+PackageIdentifier: $id
+PackageVersion: $version
+PackageLocale: en-US
+Publisher: $publisher
+PackageName: $packageName
+ShortDescription: $shortDescription
+License: $license
+LicenseUrl: $licenseUrl
+ManifestType: defaultLocale
+ManifestVersion: 1.10.0
+"@ | Set-Content -Path $localeManifestPath
 
           .\wingetcreate.exe submit --prtitle "Add $id version $version" --token $env:WINGET_TOKEN --no-open $manifestDir
 
