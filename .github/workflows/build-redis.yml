@@ -78,7 +78,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Download source
         uses: actions/download-artifact@v8
@@ -115,16 +115,61 @@ jobs:
           # Create MSYS2 package
           cd $workspace
           mkdir -p ${{ env.REDIS_DIST }}-msys2
+          licenses_dir="${{ env.REDIS_DIST }}-msys2/LICENCES"
+          mkdir -p "$licenses_dir/redis" "$licenses_dir/msys2-runtime" "$licenses_dir/libopenssl" "$licenses_dir/gcc-libs"
           find redis-${{ env.RELEASE_VERSION }} -mindepth 1 -maxdepth 2 -type f -regex '.*\(\.exe\|\.conf\)' -exec cp -f "{}" "${{ env.REDIS_DIST }}-msys2" \;
+
+          # Bundle Redis license notices
           if [ -f "redis-${{ env.RELEASE_VERSION }}/LICENSE.txt" ]; then
-            cp redis-${{ env.RELEASE_VERSION }}/LICENSE.txt ${{ env.REDIS_DIST }}-msys2/LICENSE.txt
+            cp "redis-${{ env.RELEASE_VERSION }}/LICENSE.txt" "$licenses_dir/redis/LICENSE.txt"
           elif [ -f "redis-${{ env.RELEASE_VERSION }}/LICENSE" ]; then
-            cp redis-${{ env.RELEASE_VERSION }}/LICENSE ${{ env.REDIS_DIST }}-msys2/LICENSE.txt
+            cp "redis-${{ env.RELEASE_VERSION }}/LICENSE" "$licenses_dir/redis/LICENSE.txt"
           else
             echo "Redis license file not found in source tree."
             exit 1
           fi
-          cp redis-${{ env.RELEASE_VERSION }}/REDISCONTRIBUTIONS.txt ${{ env.REDIS_DIST }}-msys2/REDISCONTRIBUTIONS.txt
+          cp "redis-${{ env.RELEASE_VERSION }}/REDISCONTRIBUTIONS.txt" "$licenses_dir/redis/REDISCONTRIBUTIONS.txt"
+          cat > "$licenses_dir/redis/LICENSES.txt" << 'EOF'
+Redis license files
+- LICENSE.txt
+- REDISCONTRIBUTIONS.txt
+EOF
+
+          # Bundle MSYS2 runtime license notices
+          cp /usr/share/doc/Cygwin/COPYING "$licenses_dir/msys2-runtime/COPYING"
+          cp /usr/share/doc/Cygwin/CYGWIN_LICENSE "$licenses_dir/msys2-runtime/CYGWIN_LICENSE"
+          cat > "$licenses_dir/msys2-runtime/LICENSES.txt" << 'EOF'
+msys2-runtime license files
+- COPYING
+- CYGWIN_LICENSE
+EOF
+
+          # Bundle OpenSSL license notices
+          cp /usr/share/licenses/libopenssl/LICENSE.txt "$licenses_dir/libopenssl/LICENSE.txt"
+          cat > "$licenses_dir/libopenssl/LICENSES.txt" << 'EOF'
+libopenssl license files
+- LICENSE.txt
+EOF
+
+          # Bundle GCC runtime license notices
+          for file in COPYING3 COPYING.RUNTIME COPYING.LIB RUNTIME.LIBRARY.EXCEPTION; do
+            src="/usr/share/licenses/gcc-libs/$file"
+            if [ -f "$src" ]; then
+              cp "$src" "$licenses_dir/gcc-libs/"
+            fi
+          done
+          if [ ! -f "$licenses_dir/gcc-libs/RUNTIME.LIBRARY.EXCEPTION" ]; then
+            echo "gcc-libs license files not found in source tree."
+            exit 1
+          fi
+          cat > "$licenses_dir/gcc-libs/LICENSES.txt" << 'EOF'
+gcc-libs license files
+- RUNTIME.LIBRARY.EXCEPTION
+- COPYING3 (if available)
+- COPYING.RUNTIME (if available)
+- COPYING.LIB (if available)
+EOF
+
           cp /usr/bin/msys-2.0.dll /usr/bin/msys-crypto-3.dll /usr/bin/msys-ssl-3.dll /usr/bin/msys-gcc_s-seh-1.dll /usr/bin/msys-stdc++-6.dll ${{ env.REDIS_DIST }}-msys2
           sed -i 's/pidfile \/var\/run/pidfile ./' ${{ env.REDIS_DIST }}-msys2/redis.conf
           zip -q -r ${{ env.REDIS_DIST }}-msys2.zip ${{ env.REDIS_DIST }}-msys2
@@ -169,7 +214,18 @@ jobs:
 
           Expand-Archive -Path ".\${{ env.REDIS_DIST }}-msys2.zip" -DestinationPath $extractDir
           $packageRoot = Join-Path $extractDir "${{ env.REDIS_DIST }}-msys2"
-          $requiredFiles = @("LICENSE.txt", "REDISCONTRIBUTIONS.txt")
+          $requiredFiles = @(
+            "LICENCES/redis/LICENSES.txt",
+            "LICENCES/redis/LICENSE.txt",
+            "LICENCES/redis/REDISCONTRIBUTIONS.txt",
+            "LICENCES/msys2-runtime/LICENSES.txt",
+            "LICENCES/msys2-runtime/COPYING",
+            "LICENCES/msys2-runtime/CYGWIN_LICENSE",
+            "LICENCES/libopenssl/LICENSES.txt",
+            "LICENCES/libopenssl/LICENSE.txt",
+            "LICENCES/gcc-libs/LICENSES.txt",
+            "LICENCES/gcc-libs/RUNTIME.LIBRARY.EXCEPTION"
+          )
           $missing = @($requiredFiles | Where-Object { -not (Test-Path (Join-Path $packageRoot $_)) })
 
           if ($missing.Count -gt 0) {
@@ -205,13 +261,13 @@ jobs:
           Get-Content -Path redis-msys2-builds/hashes-msys2.txt | Out-File -Append -FilePath release_body.txt
 
           # Add bundled license information
-          "`nIncluded license files: LICENSE.txt, REDISCONTRIBUTIONS.txt" | Out-File -Append -FilePath release_body.txt
+          "`nIncluded license files under LICENCES/: redis, msys2-runtime, libopenssl, gcc-libs" | Out-File -Append -FilePath release_body.txt
 
           # Add workflow information
           "From workflow: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" | Out-File -Append -FilePath release_body.txt
 
       - name: Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           overwrite_files: true
           fail_on_unmatched_files: true
