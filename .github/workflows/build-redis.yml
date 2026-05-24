@@ -129,16 +129,13 @@ jobs:
             exit 1
           fi
           cp "redis-${{ env.RELEASE_VERSION }}/REDISCONTRIBUTIONS.txt" "$licenses_dir/redis/REDISCONTRIBUTIONS.txt"
-          printf '%s\n' "Redis license files" "- LICENSE.txt" "- REDISCONTRIBUTIONS.txt" > "$licenses_dir/redis/LICENSES.txt"
 
           # Bundle MSYS2 runtime license notices
           cp /usr/share/doc/Cygwin/COPYING "$licenses_dir/msys2-runtime/COPYING"
           cp /usr/share/doc/Cygwin/CYGWIN_LICENSE "$licenses_dir/msys2-runtime/CYGWIN_LICENSE"
-          printf '%s\n' "msys2-runtime license files" "- COPYING" "- CYGWIN_LICENSE" > "$licenses_dir/msys2-runtime/LICENSES.txt"
 
           # Bundle OpenSSL license notices
           cp /usr/share/licenses/libopenssl/LICENSE.txt "$licenses_dir/libopenssl/LICENSE.txt"
-          printf '%s\n' "libopenssl license files" "- LICENSE.txt" > "$licenses_dir/libopenssl/LICENSES.txt"
 
           # Bundle GCC runtime license notices
           for file in COPYING3 COPYING.RUNTIME COPYING.LIB RUNTIME.LIBRARY.EXCEPTION; do
@@ -151,7 +148,6 @@ jobs:
             echo "gcc-libs license files not found in source tree."
             exit 1
           fi
-          printf '%s\n' "gcc-libs license files" "- RUNTIME.LIBRARY.EXCEPTION" "- COPYING3 (if available)" "- COPYING.RUNTIME (if available)" "- COPYING.LIB (if available)" > "$licenses_dir/gcc-libs/LICENSES.txt"
 
           cp /usr/bin/msys-2.0.dll /usr/bin/msys-crypto-3.dll /usr/bin/msys-ssl-3.dll /usr/bin/msys-gcc_s-seh-1.dll /usr/bin/msys-stdc++-6.dll ${{ env.REDIS_DIST }}-msys2
           sed -i 's/pidfile \/var\/run/pidfile ./' ${{ env.REDIS_DIST }}-msys2/redis.conf
@@ -198,15 +194,11 @@ jobs:
           Expand-Archive -Path ".\${{ env.REDIS_DIST }}-msys2.zip" -DestinationPath $extractDir
           $packageRoot = Join-Path $extractDir "${{ env.REDIS_DIST }}-msys2"
           $requiredFiles = @(
-            "LICENCES/redis/LICENSES.txt",
             "LICENCES/redis/LICENSE.txt",
             "LICENCES/redis/REDISCONTRIBUTIONS.txt",
-            "LICENCES/msys2-runtime/LICENSES.txt",
             "LICENCES/msys2-runtime/COPYING",
             "LICENCES/msys2-runtime/CYGWIN_LICENSE",
-            "LICENCES/libopenssl/LICENSES.txt",
             "LICENCES/libopenssl/LICENSE.txt",
-            "LICENCES/gcc-libs/LICENSES.txt",
             "LICENCES/gcc-libs/RUNTIME.LIBRARY.EXCEPTION"
           )
           $missing = @($requiredFiles | Where-Object { -not (Test-Path (Join-Path $packageRoot $_)) })
