@@ -129,27 +129,16 @@ jobs:
             exit 1
           fi
           cp "redis-${{ env.RELEASE_VERSION }}/REDISCONTRIBUTIONS.txt" "$licenses_dir/redis/REDISCONTRIBUTIONS.txt"
-          cat > "$licenses_dir/redis/LICENSES.txt" << 'EOF'
-Redis license files
-- LICENSE.txt
-- REDISCONTRIBUTIONS.txt
-EOF
+          printf '%s\n' "Redis license files" "- LICENSE.txt" "- REDISCONTRIBUTIONS.txt" > "$licenses_dir/redis/LICENSES.txt"
 
           # Bundle MSYS2 runtime license notices
           cp /usr/share/doc/Cygwin/COPYING "$licenses_dir/msys2-runtime/COPYING"
           cp /usr/share/doc/Cygwin/CYGWIN_LICENSE "$licenses_dir/msys2-runtime/CYGWIN_LICENSE"
-          cat > "$licenses_dir/msys2-runtime/LICENSES.txt" << 'EOF'
-msys2-runtime license files
-- COPYING
-- CYGWIN_LICENSE
-EOF
+          printf '%s\n' "msys2-runtime license files" "- COPYING" "- CYGWIN_LICENSE" > "$licenses_dir/msys2-runtime/LICENSES.txt"
 
           # Bundle OpenSSL license notices
           cp /usr/share/licenses/libopenssl/LICENSE.txt "$licenses_dir/libopenssl/LICENSE.txt"
-          cat > "$licenses_dir/libopenssl/LICENSES.txt" << 'EOF'
-libopenssl license files
-- LICENSE.txt
-EOF
+          printf '%s\n' "libopenssl license files" "- LICENSE.txt" > "$licenses_dir/libopenssl/LICENSES.txt"
 
           # Bundle GCC runtime license notices
           for file in COPYING3 COPYING.RUNTIME COPYING.LIB RUNTIME.LIBRARY.EXCEPTION; do
@@ -162,13 +151,7 @@ EOF
             echo "gcc-libs license files not found in source tree."
             exit 1
           fi
-          cat > "$licenses_dir/gcc-libs/LICENSES.txt" << 'EOF'
-gcc-libs license files
-- RUNTIME.LIBRARY.EXCEPTION
-- COPYING3 (if available)
-- COPYING.RUNTIME (if available)
-- COPYING.LIB (if available)
-EOF
+          printf '%s\n' "gcc-libs license files" "- RUNTIME.LIBRARY.EXCEPTION" "- COPYING3 (if available)" "- COPYING.RUNTIME (if available)" "- COPYING.LIB (if available)" > "$licenses_dir/gcc-libs/LICENSES.txt"
 
           cp /usr/bin/msys-2.0.dll /usr/bin/msys-crypto-3.dll /usr/bin/msys-ssl-3.dll /usr/bin/msys-gcc_s-seh-1.dll /usr/bin/msys-stdc++-6.dll ${{ env.REDIS_DIST }}-msys2
           sed -i 's/pidfile \/var\/run/pidfile ./' ${{ env.REDIS_DIST }}-msys2/redis.conf
