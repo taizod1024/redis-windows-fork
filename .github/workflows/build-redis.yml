@@ -65,7 +65,7 @@ jobs:
           $releaseInfo.body -Replace '\#1', 'https://github.com/redis/redis/pull/1' | Set-Content .\redis_latest_body.txt
 
       - name: Upload source
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: redis-source
           path: |
@@ -81,7 +81,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download source
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: redis-source
 
@@ -177,7 +177,7 @@ jobs:
           }
 
       - name: Upload MSYS2 builds
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: redis-msys2-builds
           path: |
@@ -194,7 +194,7 @@ jobs:
           Add-Content -Path $env:GITHUB_ENV -Value "REDIS_DIST=${{ needs.prepare.outputs.redis_dist }}"
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
 
       - name: Prepare release
         run: |
