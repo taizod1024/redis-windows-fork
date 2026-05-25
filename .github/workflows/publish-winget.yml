@@ -37,23 +37,44 @@ jobs:
             $tokenSource = "${{ secrets.GH_PAT }}"
           }
           if ([string]::IsNullOrWhiteSpace($tokenSource)) {
-            Write-Output "WINGET_GITHUB_TOKEN/GH_PAT is not set. Fallback to github.token will be used."
+            throw "WINGET_GITHUB_TOKEN or GH_PAT is required. github.token cannot submit PRs to winget-pkgs."
           }
 
       - name: Resolve release asset URL
         id: release
         run: |
           if ("${{ github.event_name }}" -eq "workflow_dispatch") {
-            $tag = "${{ inputs.release_tag }}"
-            if ([string]::IsNullOrWhiteSpace($tag)) {
+            $inputTag = "${{ inputs.release_tag }}"
+            if ([string]::IsNullOrWhiteSpace($inputTag)) {
               throw "workflow_dispatch requires release_tag input."
             }
 
-            $releaseApiUrl = "https://api.github.com/repos/${{ github.repository }}/releases/tags/$tag"
-            $event = Invoke-RestMethod -Headers @{
-              Authorization = "Bearer ${{ secrets.GITHUB_TOKEN }}"
-              "User-Agent" = "redis-windows-msys2-winget"
-            } -Uri $releaseApiUrl
+            $tagsToTry = @($inputTag)
+            if ($inputTag.StartsWith('v')) {
+              $tagsToTry += $inputTag.TrimStart('v')
+            }
+            else {
+              $tagsToTry += "v$inputTag"
+            }
+
+            $event = $null
+            foreach ($candidateTag in $tagsToTry) {
+              $releaseApiUrl = "https://api.github.com/repos/${{ github.repository }}/releases/tags/$candidateTag"
+              try {
+                $event = Invoke-RestMethod -Headers @{
+                  Authorization = "Bearer ${{ secrets.GITHUB_TOKEN }}"
+                  "User-Agent" = "redis-windows-msys2-winget"
+                } -Uri $releaseApiUrl
+                break
+              }
+              catch {
+                Write-Output "Release tag lookup failed for '$candidateTag'. Trying next candidate..."
+              }
+            }
+
+            if (-not $event) {
+              throw "Unable to find release for input tag '$inputTag'. Tried both with and without 'v' prefix."
+            }
           }
           else {
             $event = Get-Content -Raw $env:GITHUB_EVENT_PATH | ConvertFrom-Json
@@ -92,7 +113,7 @@ jobs:
 
       - name: Submit package to winget-pkgs
         env:
-          WINGET_TOKEN: ${{ secrets.WINGET_GITHUB_TOKEN || secrets.GH_PAT || github.token }}
+          WINGET_TOKEN: ${{ secrets.WINGET_GITHUB_TOKEN || secrets.GH_PAT }}
         run: |
           $id = $env:PACKAGE_IDENTIFIER
           $publisher = $env:PACKAGE_PUBLISHER
