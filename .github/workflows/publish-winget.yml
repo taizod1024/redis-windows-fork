@@ -169,7 +169,10 @@ jobs:
           }
           New-Item -ItemType Directory -Path $manifestDir | Out-Null
 
-          $installerPath = Join-Path $manifestDir "installer.zip"
+          $installerPath = Join-Path $env:RUNNER_TEMP "redis-installer-$version.zip"
+          if (Test-Path $installerPath) {
+            Remove-Item -Path $installerPath -Force
+          }
           Invoke-WebRequest -Uri $url -OutFile $installerPath
           $sha256 = (Get-FileHash -Path $installerPath -Algorithm SHA256).Hash
 
@@ -233,7 +236,7 @@ jobs:
           Write-Output "Generated manifest files:"
           Get-ChildItem -Path $manifestDir -Recurse -File | ForEach-Object { Write-Output $_.FullName }
 
-          .\wingetcreate.exe submit --prtitle "Add $id version $version" --token $token --no-open $manifestDir
+          .\wingetcreate.exe submit --prtitle "Add $id version $version" --token $token --no-open $packagePath
 
           if ($LASTEXITCODE -ne 0) {
             throw "Failed to submit package manifest to winget-pkgs after update and new flows."
