@@ -136,42 +136,42 @@ jobs:
           $installerManifestPath = Join-Path $packagePath "taizod1024.redis-windows.installer.yaml"
           $localeManifestPath = Join-Path $packagePath "taizod1024.redis-windows.locale.en-US.yaml"
 
-          @"
-PackageIdentifier: $id
-PackageVersion: $version
-DefaultLocale: en-US
-ManifestType: version
-ManifestVersion: 1.10.0
-"@ | Set-Content -Path $versionManifestPath
+          @(
+            "PackageIdentifier: $id"
+            "PackageVersion: $version"
+            "DefaultLocale: en-US"
+            "ManifestType: version"
+            "ManifestVersion: 1.10.0"
+          ) -join "`n" | Set-Content -Path $versionManifestPath
 
-          @"
-PackageIdentifier: $id
-PackageVersion: $version
-InstallerType: zip
-NestedInstallerType: portable
-NestedInstallerFiles:
-  - RelativeFilePath: Redis-$version-Windows-x64-msys2/redis-server.exe
-    PortableCommandAlias: redis-server
-Installers:
-  - Architecture: x64
-    InstallerUrl: $url
-    InstallerSha256: $sha256
-ManifestType: installer
-ManifestVersion: 1.10.0
-"@ | Set-Content -Path $installerManifestPath
+          @(
+            "PackageIdentifier: $id"
+            "PackageVersion: $version"
+            "InstallerType: zip"
+            "NestedInstallerType: portable"
+            "NestedInstallerFiles:"
+            "  - RelativeFilePath: Redis-$version-Windows-x64-msys2/redis-server.exe"
+            "    PortableCommandAlias: redis-server"
+            "Installers:"
+            "  - Architecture: x64"
+            "    InstallerUrl: $url"
+            "    InstallerSha256: $sha256"
+            "ManifestType: installer"
+            "ManifestVersion: 1.10.0"
+          ) -join "`n" | Set-Content -Path $installerManifestPath
 
-          @"
-PackageIdentifier: $id
-PackageVersion: $version
-PackageLocale: en-US
-Publisher: $publisher
-PackageName: $packageName
-ShortDescription: $shortDescription
-License: $license
-LicenseUrl: $licenseUrl
-ManifestType: defaultLocale
-ManifestVersion: 1.10.0
-"@ | Set-Content -Path $localeManifestPath
+          @(
+            "PackageIdentifier: $id"
+            "PackageVersion: $version"
+            "PackageLocale: en-US"
+            "Publisher: $publisher"
+            "PackageName: $packageName"
+            "ShortDescription: $shortDescription"
+            "License: $license"
+            "LicenseUrl: $licenseUrl"
+            "ManifestType: defaultLocale"
+            "ManifestVersion: 1.10.0"
+          ) -join "`n" | Set-Content -Path $localeManifestPath
 
           .\wingetcreate.exe submit --prtitle "Add $id version $version" --token $env:WINGET_TOKEN --no-open $manifestDir
 
