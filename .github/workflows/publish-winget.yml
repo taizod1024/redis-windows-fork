@@ -148,7 +148,14 @@ jobs:
 
           Write-Output "Package update failed. Trying first-time package registration flow..."
 
-          .\wingetcreate.exe new --urls $url --version $version $id --submit --token $token
+          $manifestDir = Join-Path $pwd "winget-manifests"
+          if (Test-Path $manifestDir) {
+            Remove-Item -Path $manifestDir -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $manifestDir | Out-Null
+
+          # Use syntax compatible with wingetcreate v1.12.x (no --urls/--version/--submit on `new`).
+          .\wingetcreate.exe new --out $manifestDir --token $token --no-open $url
 
           if ($LASTEXITCODE -ne 0) {
             throw "Failed to submit package manifest to winget-pkgs after update and new flows."
