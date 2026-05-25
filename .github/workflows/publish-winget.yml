@@ -120,14 +120,24 @@ jobs:
           $version = "${{ steps.release.outputs.version }}"
           $url = "${{ steps.release.outputs.asset_url }}"
 
-          if ([string]::IsNullOrWhiteSpace($env:WINGET_TOKEN)) {
+          $token = $env:WINGET_TOKEN
+          if (-not [string]::IsNullOrWhiteSpace($token)) {
+            # Remove accidental line breaks/spaces that break Authorization headers.
+            $token = ($token -replace "`r|`n", "").Trim()
+          }
+
+          if ([string]::IsNullOrWhiteSpace($token)) {
             throw "No GitHub token is available for winget submission."
+          }
+
+          if ($token -notmatch '^[A-Za-z0-9_]+$') {
+            throw "GitHub token contains invalid characters. Re-save WINGET_GITHUB_TOKEN/GH_PAT without line breaks or spaces."
           }
 
           Write-Output "Submitting to winget: $id $version"
           Write-Output "Installer URL: $url"
 
-          .\wingetcreate.exe update --urls $url --version $version $id --submit --token $env:WINGET_TOKEN
+          .\wingetcreate.exe update --urls $url --version $version $id --submit --token $token
 
           if ($LASTEXITCODE -eq 0) {
             Write-Output "Updated existing package successfully."
@@ -190,7 +200,7 @@ jobs:
             "ManifestVersion: 1.10.0"
           ) -join "`n" | Set-Content -Path $localeManifestPath
 
-          .\wingetcreate.exe submit --prtitle "Add $id version $version" --token $env:WINGET_TOKEN --no-open $manifestDir
+          .\wingetcreate.exe submit --prtitle "Add $id version $version" --token $token --no-open $manifestDir
 
           if ($LASTEXITCODE -ne 0) {
             throw "Failed to submit new package manifest to winget-pkgs."
