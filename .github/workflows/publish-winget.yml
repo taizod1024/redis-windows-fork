@@ -187,6 +187,7 @@ jobs:
           $localeManifestPath = Join-Path $packagePath "taizod1024.redis-windows.locale.en-US.yaml"
 
           @(
+            "# yaml-language-server: `$schema=https://aka.ms/winget-manifest.version.1.10.0.schema.json"
             "PackageIdentifier: $yamlId"
             "PackageVersion: $yamlVersion"
             "DefaultLocale: en-US"
@@ -195,6 +196,7 @@ jobs:
           ) -join "`n" | Set-Content -Path $versionManifestPath -Encoding utf8
 
           @(
+            "# yaml-language-server: `$schema=https://aka.ms/winget-manifest.installer.1.10.0.schema.json"
             "PackageIdentifier: $yamlId"
             "PackageVersion: $yamlVersion"
             "InstallerType: zip"
@@ -211,6 +213,7 @@ jobs:
           ) -join "`n" | Set-Content -Path $installerManifestPath -Encoding utf8
 
           @(
+            "# yaml-language-server: `$schema=https://aka.ms/winget-manifest.defaultLocale.1.10.0.schema.json"
             "PackageIdentifier: $yamlId"
             "PackageVersion: $yamlVersion"
             "PackageLocale: en-US"
@@ -223,7 +226,7 @@ jobs:
             "ManifestVersion: 1.10.0"
           ) -join "`n" | Set-Content -Path $localeManifestPath -Encoding utf8
 
-          .\wingetcreate.exe submit --prtitle "Add $id version $version" --token $token --no-open $packagePath
+          .\wingetcreate.exe submit --prtitle "Add $id version $version" --token $token --no-open $manifestDir
 
           if ($LASTEXITCODE -ne 0) {
             throw "Failed to submit new package manifest to winget-pkgs."
