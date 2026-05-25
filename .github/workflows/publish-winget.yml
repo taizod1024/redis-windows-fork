@@ -111,7 +111,7 @@ jobs:
         env:
           WINGET_TOKEN: ${{ secrets.WINGET_GITHUB_TOKEN || secrets.GH_PAT }}
         run: |
-          Write-Output "Winget workflow revision: 20260525-v4 (update->new)"
+          Write-Output "Winget workflow revision: 20260525-v5 (update->manual-submit)"
 
           $id = $env:PACKAGE_IDENTIFIER
           $publisher = $env:PACKAGE_PUBLISHER
@@ -148,14 +148,92 @@ jobs:
 
           Write-Output "Package update failed. Trying first-time package registration flow..."
 
+          function Remove-ControlChars([string]$value) {
+            if ($null -eq $value) {
+              return ""
+            }
+
+            $chars = $value.ToCharArray() | Where-Object { [int]$_ -ge 32 -and [int]$_ -ne 127 }
+            return (-join $chars).Trim()
+          }
+
+          function Quote-Yaml([string]$value) {
+            $clean = Remove-ControlChars $value
+            $clean = $clean -replace "'", "''"
+            return "'" + $clean + "'"
+          }
+
           $manifestDir = Join-Path $pwd "winget-manifests"
           if (Test-Path $manifestDir) {
             Remove-Item -Path $manifestDir -Recurse -Force
           }
           New-Item -ItemType Directory -Path $manifestDir | Out-Null
 
-          # Use syntax compatible with wingetcreate v1.12.x (no --urls/--version/--submit on `new`).
-          .\wingetcreate.exe new --out $manifestDir --token $token --no-open $url
+          $installerPath = Join-Path $manifestDir "installer.zip"
+          Invoke-WebRequest -Uri $url -OutFile $installerPath
+          $sha256 = (Get-FileHash -Path $installerPath -Algorithm SHA256).Hash
+
+          $qId = Quote-Yaml $id
+          $qVersion = Quote-Yaml $version
+          $qPublisher = Quote-Yaml $publisher
+          $qPackageName = Quote-Yaml $packageName
+          $qShortDescription = Quote-Yaml $shortDescription
+          $qLicense = Quote-Yaml $license
+          $qLicenseUrl = Quote-Yaml $licenseUrl
+          $qUrl = Quote-Yaml $url
+          $qSha256 = Quote-Yaml $sha256
+
+          $packagePath = Join-Path $manifestDir "manifests/t/taizod1024/redis-windows/$version"
+          New-Item -ItemType Directory -Path $packagePath -Force | Out-Null
+
+          $versionManifestPath = Join-Path $packagePath "taizod1024.redis-windows.yaml"
+          $installerManifestPath = Join-Path $packagePath "taizod1024.redis-windows.installer.yaml"
+          $localeManifestPath = Join-Path $packagePath "taizod1024.redis-windows.locale.en-US.yaml"
+
+          @(
+            '# yaml-language-server: $schema=https://aka.ms/winget-manifest.version.1.10.0.schema.json'
+            "PackageIdentifier: $qId"
+            "PackageVersion: $qVersion"
+            'DefaultLocale: en-US'
+            'ManifestType: version'
+            'ManifestVersion: 1.10.0'
+          ) -join "`n" | Out-File -FilePath $versionManifestPath -Encoding utf8
+
+          @(
+            '# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.10.0.schema.json'
+            "PackageIdentifier: $qId"
+            "PackageVersion: $qVersion"
+            'InstallerType: zip'
+            'NestedInstallerType: portable'
+            'NestedInstallerFiles:'
+            "  - RelativeFilePath: Redis-$version-Windows-x64-msys2/redis-server.exe"
+            '    PortableCommandAlias: redis-server'
+            'Installers:'
+            '  - Architecture: x64'
+            "    InstallerUrl: $qUrl"
+            "    InstallerSha256: $qSha256"
+            'ManifestType: installer'
+            'ManifestVersion: 1.10.0'
+          ) -join "`n" | Out-File -FilePath $installerManifestPath -Encoding utf8
+
+          @(
+            '# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.10.0.schema.json'
+            "PackageIdentifier: $qId"
+            "PackageVersion: $qVersion"
+            'PackageLocale: en-US'
+            "Publisher: $qPublisher"
+            "PackageName: $qPackageName"
+            "ShortDescription: $qShortDescription"
+            "License: $qLicense"
+            "LicenseUrl: $qLicenseUrl"
+            'ManifestType: defaultLocale'
+            'ManifestVersion: 1.10.0'
+          ) -join "`n" | Out-File -FilePath $localeManifestPath -Encoding utf8
+
+          Write-Output "Generated manifest files:"
+          Get-ChildItem -Path $manifestDir -Recurse -File | ForEach-Object { Write-Output $_.FullName }
+
+          .\wingetcreate.exe submit --prtitle "Add $id version $version" --token $token --no-open $manifestDir
 
           if ($LASTEXITCODE -ne 0) {
             throw "Failed to submit package manifest to winget-pkgs after update and new flows."
