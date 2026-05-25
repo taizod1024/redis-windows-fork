@@ -3,9 +3,14 @@ name: Publish to winget
 on:
   workflow_dispatch:
     inputs:
-      release_tag:
-        description: "Release tag to submit (example: 8.6.3 or v8.6.3)"
-        required: true
+      use_latest_tag:
+        description: "Use latest Redis tag"
+        default: true
+        type: boolean
+      tag_name:
+        description: "Redis Version"
+        required: false
+        default: ""
         type: string
 
 permissions:
@@ -38,9 +43,29 @@ jobs:
             } -Uri $releaseApiUrl
           }
 
-          $inputTag = "${{ inputs.release_tag }}"
-          if ([string]::IsNullOrWhiteSpace($inputTag)) {
-            throw "workflow_dispatch requires release_tag input."
+          function Get-LatestRedisTag() {
+            $latestRedisReleaseUrl = "https://api.github.com/repos/redis/redis/releases/latest"
+            $latestInfo = Invoke-RestMethod -Headers @{
+              Authorization = "Bearer ${{ secrets.GITHUB_TOKEN }}"
+              "User-Agent" = "redis-windows-msys2-winget"
+            } -Uri $latestRedisReleaseUrl
+
+            if ([string]::IsNullOrWhiteSpace($latestInfo.tag_name)) {
+              throw "Unable to resolve latest Redis tag from redis/redis releases API."
+            }
+
+            return $latestInfo.tag_name
+          }
+
+          $useLatestTag = "${{ inputs.use_latest_tag }}" -eq "true"
+          $inputTag = "${{ inputs.tag_name }}"
+
+          if ($useLatestTag) {
+            $inputTag = Get-LatestRedisTag
+            Write-Output "Using latest Redis tag: $inputTag"
+          }
+          elseif ([string]::IsNullOrWhiteSpace($inputTag)) {
+            throw "tag_name is required when use_latest_tag is false."
           }
 
           $tagsToTry = @($inputTag)
