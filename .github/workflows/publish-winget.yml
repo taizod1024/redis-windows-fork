@@ -1,8 +1,6 @@
 name: Publish to winget
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       release_tag:
@@ -18,8 +16,6 @@ env:
 
 jobs:
   submit-winget:
-    # Skip prerelease tags because winget-pkgs only accepts stable versions.
-    if: ${{ github.event_name == 'workflow_dispatch' || !github.event.release.prerelease }}
     runs-on: windows-latest
     env:
       PACKAGE_IDENTIFIER: taizod1024.redis-windows
