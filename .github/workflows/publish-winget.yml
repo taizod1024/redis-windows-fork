@@ -111,6 +111,19 @@ jobs:
         env:
           WINGET_TOKEN: ${{ secrets.WINGET_GITHUB_TOKEN || secrets.GH_PAT }}
         run: |
+          function Get-SafeYamlScalar([string]$value) {
+            if ($null -eq $value) {
+              return "''"
+            }
+
+            # Remove control characters that can break YAML parsing.
+            $clean = $value -replace "[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", ""
+            $clean = ($clean -replace "`r|`n", " ").Trim()
+
+            # Use single-quoted YAML scalar and escape single quotes.
+            return "'" + ($clean -replace "'", "''") + "'"
+          }
+
           $id = $env:PACKAGE_IDENTIFIER
           $publisher = $env:PACKAGE_PUBLISHER
           $packageName = if ([string]::IsNullOrWhiteSpace($env:PACKAGE_NAME)) { "redis-windows" } else { $env:PACKAGE_NAME }
@@ -156,6 +169,16 @@ jobs:
           Invoke-WebRequest -Uri $url -OutFile $installerPath
           $sha256 = (Get-FileHash -Path $installerPath -Algorithm SHA256).Hash
 
+          $yamlId = Get-SafeYamlScalar $id
+          $yamlVersion = Get-SafeYamlScalar $version
+          $yamlPublisher = Get-SafeYamlScalar $publisher
+          $yamlPackageName = Get-SafeYamlScalar $packageName
+          $yamlShortDescription = Get-SafeYamlScalar $shortDescription
+          $yamlLicense = Get-SafeYamlScalar $license
+          $yamlLicenseUrl = Get-SafeYamlScalar $licenseUrl
+          $yamlUrl = Get-SafeYamlScalar $url
+          $yamlSha256 = Get-SafeYamlScalar $sha256
+
           $packagePath = Join-Path $manifestDir "manifests/t/taizod1024/redis-windows/$version"
           New-Item -ItemType Directory -Path $packagePath -Force | Out-Null
 
@@ -164,16 +187,16 @@ jobs:
           $localeManifestPath = Join-Path $packagePath "taizod1024.redis-windows.locale.en-US.yaml"
 
           @(
-            "PackageIdentifier: $id"
-            "PackageVersion: $version"
+            "PackageIdentifier: $yamlId"
+            "PackageVersion: $yamlVersion"
             "DefaultLocale: en-US"
             "ManifestType: version"
             "ManifestVersion: 1.10.0"
-          ) -join "`n" | Set-Content -Path $versionManifestPath
+          ) -join "`n" | Set-Content -Path $versionManifestPath -Encoding utf8
 
           @(
-            "PackageIdentifier: $id"
-            "PackageVersion: $version"
+            "PackageIdentifier: $yamlId"
+            "PackageVersion: $yamlVersion"
             "InstallerType: zip"
             "NestedInstallerType: portable"
             "NestedInstallerFiles:"
@@ -181,26 +204,26 @@ jobs:
             "    PortableCommandAlias: redis-server"
             "Installers:"
             "  - Architecture: x64"
-            "    InstallerUrl: $url"
-            "    InstallerSha256: $sha256"
+            "    InstallerUrl: $yamlUrl"
+            "    InstallerSha256: $yamlSha256"
             "ManifestType: installer"
             "ManifestVersion: 1.10.0"
-          ) -join "`n" | Set-Content -Path $installerManifestPath
+          ) -join "`n" | Set-Content -Path $installerManifestPath -Encoding utf8
 
           @(
-            "PackageIdentifier: $id"
-            "PackageVersion: $version"
+            "PackageIdentifier: $yamlId"
+            "PackageVersion: $yamlVersion"
             "PackageLocale: en-US"
-            "Publisher: $publisher"
-            "PackageName: $packageName"
-            "ShortDescription: $shortDescription"
-            "License: $license"
-            "LicenseUrl: $licenseUrl"
+            "Publisher: $yamlPublisher"
+            "PackageName: $yamlPackageName"
+            "ShortDescription: $yamlShortDescription"
+            "License: $yamlLicense"
+            "LicenseUrl: $yamlLicenseUrl"
             "ManifestType: defaultLocale"
             "ManifestVersion: 1.10.0"
-          ) -join "`n" | Set-Content -Path $localeManifestPath
+          ) -join "`n" | Set-Content -Path $localeManifestPath -Encoding utf8
 
-          .\wingetcreate.exe submit --prtitle "Add $id version $version" --token $token --no-open $manifestDir
+          .\wingetcreate.exe submit --prtitle "Add $id version $version" --token $token --no-open $packagePath
 
           if ($LASTEXITCODE -ne 0) {
             throw "Failed to submit new package manifest to winget-pkgs."
