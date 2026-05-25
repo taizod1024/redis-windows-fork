@@ -23,7 +23,7 @@ jobs:
   submit-winget:
     runs-on: windows-latest
     env:
-      PACKAGE_IDENTIFIER: taizod1024.redis-windows
+      PACKAGE_IDENTIFIER: taizod1024.redis-windows-fork
       PACKAGE_PUBLISHER: taizod1024
       PACKAGE_NAME: ${{ vars.WINGET_PACKAGE_NAME }}
       PACKAGE_SHORT_DESCRIPTION: ${{ vars.WINGET_PACKAGE_SHORT_DESCRIPTION }}
