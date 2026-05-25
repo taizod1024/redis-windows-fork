@@ -111,6 +111,8 @@ jobs:
         env:
           WINGET_TOKEN: ${{ secrets.WINGET_GITHUB_TOKEN || secrets.GH_PAT }}
         run: |
+          Write-Output "Winget workflow revision: 20260525-v4 (update->new)"
+
           $id = $env:PACKAGE_IDENTIFIER
           $publisher = $env:PACKAGE_PUBLISHER
           $packageName = if ([string]::IsNullOrWhiteSpace($env:PACKAGE_NAME)) { "redis-windows" } else { $env:PACKAGE_NAME }
