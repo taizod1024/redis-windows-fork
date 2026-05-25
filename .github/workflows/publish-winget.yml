@@ -24,56 +24,57 @@ jobs:
       PACKAGE_SHORT_DESCRIPTION: ${{ vars.WINGET_PACKAGE_SHORT_DESCRIPTION }}
       PACKAGE_LICENSE: ${{ vars.WINGET_PACKAGE_LICENSE }}
       PACKAGE_LICENSE_URL: ${{ vars.WINGET_PACKAGE_LICENSE_URL }}
+      WINGETCREATE_VERSION: 1.12.8.0
 
     steps:
-      - name: Validate winget configuration
-        run: |
-          $tokenSource = "${{ secrets.WINGET_GITHUB_TOKEN }}"
-          if ([string]::IsNullOrWhiteSpace($tokenSource)) {
-            $tokenSource = "${{ secrets.GH_PAT }}"
-          }
-          if ([string]::IsNullOrWhiteSpace($tokenSource)) {
-            throw "WINGET_GITHUB_TOKEN or GH_PAT is required. github.token cannot submit PRs to winget-pkgs."
-          }
-
       - name: Resolve release asset URL
         id: release
         run: |
-          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
-            $inputTag = "${{ inputs.release_tag }}"
-            if ([string]::IsNullOrWhiteSpace($inputTag)) {
-              throw "workflow_dispatch requires release_tag input."
-            }
+          function Get-ReleaseByTag([string]$candidateTag) {
+            $releaseApiUrl = "https://api.github.com/repos/${{ github.repository }}/releases/tags/$candidateTag"
+            return Invoke-RestMethod -Headers @{
+              Authorization = "Bearer ${{ secrets.GITHUB_TOKEN }}"
+              "User-Agent" = "redis-windows-msys2-winget"
+            } -Uri $releaseApiUrl
+          }
 
-            $tagsToTry = @($inputTag)
-            if ($inputTag.StartsWith('v')) {
-              $tagsToTry += $inputTag.TrimStart('v')
-            }
-            else {
-              $tagsToTry += "v$inputTag"
-            }
+          $inputTag = "${{ inputs.release_tag }}"
+          if ([string]::IsNullOrWhiteSpace($inputTag)) {
+            throw "workflow_dispatch requires release_tag input."
+          }
 
-            $event = $null
-            foreach ($candidateTag in $tagsToTry) {
-              $releaseApiUrl = "https://api.github.com/repos/${{ github.repository }}/releases/tags/$candidateTag"
-              try {
-                $event = Invoke-RestMethod -Headers @{
-                  Authorization = "Bearer ${{ secrets.GITHUB_TOKEN }}"
-                  "User-Agent" = "redis-windows-msys2-winget"
-                } -Uri $releaseApiUrl
-                break
-              }
-              catch {
-                Write-Output "Release tag lookup failed for '$candidateTag'. Trying next candidate..."
-              }
-            }
-
-            if (-not $event) {
-              throw "Unable to find release for input tag '$inputTag'. Tried both with and without 'v' prefix."
-            }
+          $tagsToTry = @($inputTag)
+          if ($inputTag.StartsWith('v')) {
+            $tagsToTry += $inputTag.TrimStart('v')
           }
           else {
-            $event = Get-Content -Raw $env:GITHUB_EVENT_PATH | ConvertFrom-Json
+            $tagsToTry += "v$inputTag"
+          }
+
+          $event = $null
+          foreach ($candidateTag in $tagsToTry) {
+            try {
+              $event = Get-ReleaseByTag $candidateTag
+              break
+            }
+            catch {
+              $statusCode = $null
+              try {
+                $statusCode = [int]$_.Exception.Response.StatusCode
+              }
+              catch {
+              }
+
+              if ($statusCode -and $statusCode -ne 404) {
+                throw "Release tag lookup failed for '$candidateTag' with status $statusCode: $($_.Exception.Message)"
+              }
+
+              Write-Output "Release tag lookup failed for '$candidateTag'. Trying next candidate..."
+            }
+          }
+
+          if (-not $event) {
+            throw "Unable to find release for input tag '$inputTag'. Tried both with and without 'v' prefix."
           }
 
           $tag = $event.tag_name
@@ -99,34 +100,44 @@ jobs:
 
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "asset_name=$($asset.name)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "asset_url=$($asset.browser_download_url)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Install wingetcreate
         run: |
-          Invoke-WebRequest -Uri "https://aka.ms/wingetcreate/latest" -OutFile wingetcreate.exe
+          $wingetCreateUrl = "https://github.com/microsoft/winget-create/releases/download/v$env:WINGETCREATE_VERSION/wingetcreate.exe"
+          Invoke-WebRequest -Uri $wingetCreateUrl -OutFile wingetcreate.exe
           .\wingetcreate.exe info
 
       - name: Submit package to winget-pkgs
         env:
           WINGET_TOKEN: ${{ secrets.WINGET_GITHUB_TOKEN || secrets.GH_PAT }}
         run: |
-          Write-Output "Winget workflow revision: 20260525-v5 (update->manual-submit)"
+          function Get-ValueOrDefault([string]$value, [string]$defaultValue) {
+            if ([string]::IsNullOrWhiteSpace($value)) {
+              return $defaultValue
+            }
+            return $value
+          }
+
+          function Normalize-Token([string]$value) {
+            if ([string]::IsNullOrWhiteSpace($value)) {
+              return ""
+            }
+            # Remove accidental line breaks/spaces that break Authorization headers.
+            return ($value -replace "`r|`n", "").Trim()
+          }
 
           $id = $env:PACKAGE_IDENTIFIER
           $publisher = $env:PACKAGE_PUBLISHER
-          $packageName = if ([string]::IsNullOrWhiteSpace($env:PACKAGE_NAME)) { "redis-windows" } else { $env:PACKAGE_NAME }
-          $shortDescription = if ([string]::IsNullOrWhiteSpace($env:PACKAGE_SHORT_DESCRIPTION)) { "Redis for Windows on MSYS2 runtime" } else { $env:PACKAGE_SHORT_DESCRIPTION }
-          $license = if ([string]::IsNullOrWhiteSpace($env:PACKAGE_LICENSE)) { "MIT" } else { $env:PACKAGE_LICENSE }
-          $licenseUrl = if ([string]::IsNullOrWhiteSpace($env:PACKAGE_LICENSE_URL)) { "https://github.com/taizod1024/redis-windows/blob/main/LICENSE" } else { $env:PACKAGE_LICENSE_URL }
+          $packageName = Get-ValueOrDefault $env:PACKAGE_NAME "redis-windows"
+          $shortDescription = Get-ValueOrDefault $env:PACKAGE_SHORT_DESCRIPTION "Redis for Windows on MSYS2 runtime"
+          $license = Get-ValueOrDefault $env:PACKAGE_LICENSE "MIT"
+          $licenseUrl = Get-ValueOrDefault $env:PACKAGE_LICENSE_URL "https://github.com/taizod1024/redis-windows/blob/main/LICENSE"
           $version = "${{ steps.release.outputs.version }}"
           $url = "${{ steps.release.outputs.asset_url }}"
 
-          $token = $env:WINGET_TOKEN
-          if (-not [string]::IsNullOrWhiteSpace($token)) {
-            # Remove accidental line breaks/spaces that break Authorization headers.
-            $token = ($token -replace "`r|`n", "").Trim()
-          }
+          # Validate auth token before invoking wingetcreate.
+          $token = Normalize-Token $env:WINGET_TOKEN
 
           if ([string]::IsNullOrWhiteSpace($token)) {
             throw "No GitHub token is available for winget submission."
@@ -139,6 +150,7 @@ jobs:
           Write-Output "Submitting to winget: $id $version"
           Write-Output "Installer URL: $url"
 
+          # Fast path: package already exists in winget-pkgs.
           .\wingetcreate.exe update --urls $url --version $version $id --submit --token $token
 
           if ($LASTEXITCODE -eq 0) {
@@ -146,6 +158,7 @@ jobs:
             exit 0
           }
 
+          # Fallback path: first-time package registration.
           Write-Output "Package update failed. Trying first-time package registration flow..."
 
           function Remove-ControlChars([string]$value) {
@@ -163,6 +176,10 @@ jobs:
             return "'" + $clean + "'"
           }
 
+          function Write-Manifest([string]$path, [string[]]$lines) {
+            $lines -join "`n" | Out-File -FilePath $path -Encoding utf8
+          }
+
           $manifestDir = Join-Path $pwd "winget-manifests"
           if (Test-Path $manifestDir) {
             Remove-Item -Path $manifestDir -Recurse -Force
@@ -176,6 +193,23 @@ jobs:
           Invoke-WebRequest -Uri $url -OutFile $installerPath
           $sha256 = (Get-FileHash -Path $installerPath -Algorithm SHA256).Hash
 
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($installerPath)
+          try {
+            $redisServerEntry = $archive.Entries |
+              Where-Object { $_.FullName -match '(?i)(^|/)redis-server\.exe$' } |
+              Select-Object -First 1
+          }
+          finally {
+            $archive.Dispose()
+          }
+
+          if (-not $redisServerEntry) {
+            throw "Unable to find redis-server.exe in installer archive."
+          }
+
+          $nestedInstallerRelativePath = $redisServerEntry.FullName -replace '\\', '/'
+
           $qId = Quote-Yaml $id
           $qVersion = Quote-Yaml $version
           $qPublisher = Quote-Yaml $publisher
@@ -185,31 +219,42 @@ jobs:
           $qLicenseUrl = Quote-Yaml $licenseUrl
           $qUrl = Quote-Yaml $url
           $qSha256 = Quote-Yaml $sha256
+          $qNestedInstallerRelativePath = Quote-Yaml $nestedInstallerRelativePath
 
-          $packagePath = Join-Path $manifestDir "manifests/t/taizod1024/redis-windows/$version"
+          $idSegments = $id.Split('.')
+          if ($idSegments.Count -lt 2) {
+            throw "Package identifier must contain at least two segments (example: Publisher.Package)."
+          }
+
+          $identifierPath = Join-Path (Join-Path $manifestDir "manifests") $idSegments[0].Substring(0, 1).ToLowerInvariant()
+          foreach ($segment in $idSegments) {
+            $identifierPath = Join-Path $identifierPath $segment
+          }
+
+          $packagePath = Join-Path $identifierPath $version
           New-Item -ItemType Directory -Path $packagePath -Force | Out-Null
 
-          $versionManifestPath = Join-Path $packagePath "taizod1024.redis-windows.yaml"
-          $installerManifestPath = Join-Path $packagePath "taizod1024.redis-windows.installer.yaml"
-          $localeManifestPath = Join-Path $packagePath "taizod1024.redis-windows.locale.en-US.yaml"
+          $versionManifestPath = Join-Path $packagePath "$id.yaml"
+          $installerManifestPath = Join-Path $packagePath "$id.installer.yaml"
+          $localeManifestPath = Join-Path $packagePath "$id.locale.en-US.yaml"
 
-          @(
+          Write-Manifest $versionManifestPath @(
             '# yaml-language-server: $schema=https://aka.ms/winget-manifest.version.1.10.0.schema.json'
             "PackageIdentifier: $qId"
             "PackageVersion: $qVersion"
             'DefaultLocale: en-US'
             'ManifestType: version'
             'ManifestVersion: 1.10.0'
-          ) -join "`n" | Out-File -FilePath $versionManifestPath -Encoding utf8
+          )
 
-          @(
+          Write-Manifest $installerManifestPath @(
             '# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.10.0.schema.json'
             "PackageIdentifier: $qId"
             "PackageVersion: $qVersion"
             'InstallerType: zip'
             'NestedInstallerType: portable'
             'NestedInstallerFiles:'
-            "  - RelativeFilePath: Redis-$version-Windows-x64-msys2/redis-server.exe"
+            "  - RelativeFilePath: $qNestedInstallerRelativePath"
             '    PortableCommandAlias: redis-server'
             'Installers:'
             '  - Architecture: x64'
@@ -217,9 +262,9 @@ jobs:
             "    InstallerSha256: $qSha256"
             'ManifestType: installer'
             'ManifestVersion: 1.10.0'
-          ) -join "`n" | Out-File -FilePath $installerManifestPath -Encoding utf8
+          )
 
-          @(
+          Write-Manifest $localeManifestPath @(
             '# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.10.0.schema.json'
             "PackageIdentifier: $qId"
             "PackageVersion: $qVersion"
@@ -231,15 +276,12 @@ jobs:
             "LicenseUrl: $qLicenseUrl"
             'ManifestType: defaultLocale'
             'ManifestVersion: 1.10.0'
-          ) -join "`n" | Out-File -FilePath $localeManifestPath -Encoding utf8
-
-          Write-Output "Generated manifest files:"
-          Get-ChildItem -Path $manifestDir -Recurse -File | ForEach-Object { Write-Output $_.FullName }
+          )
 
           .\wingetcreate.exe submit --prtitle "Add $id version $version" --token $token --no-open $packagePath
 
           if ($LASTEXITCODE -ne 0) {
-            throw "Failed to submit package manifest to winget-pkgs after update and new flows."
+            throw "Failed to submit package manifest to winget-pkgs."
           }
 
           Write-Output "Created and submitted first-time package manifest successfully."
