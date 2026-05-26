@@ -23,12 +23,6 @@ jobs:
   submit-winget:
     runs-on: windows-latest
     env:
-      PACKAGE_IDENTIFIER: taizod1024.redis-windows-fork
-      PACKAGE_PUBLISHER: taizod1024
-      PACKAGE_NAME: ${{ vars.WINGET_PACKAGE_NAME }}
-      PACKAGE_SHORT_DESCRIPTION: ${{ vars.WINGET_PACKAGE_SHORT_DESCRIPTION }}
-      PACKAGE_LICENSE: ${{ vars.WINGET_PACKAGE_LICENSE }}
-      PACKAGE_LICENSE_URL: ${{ vars.WINGET_PACKAGE_LICENSE_URL }}
       WINGETCREATE_VERSION: 1.12.8.0
 
     steps:
@@ -137,13 +131,6 @@ jobs:
         env:
           WINGET_TOKEN: ${{ secrets.WINGET_GITHUB_TOKEN || secrets.GH_PAT }}
         run: |
-          function Get-ValueOrDefault([string]$value, [string]$defaultValue) {
-            if ([string]::IsNullOrWhiteSpace($value)) {
-              return $defaultValue
-            }
-            return $value
-          }
-
           function Normalize-Token([string]$value) {
             if ([string]::IsNullOrWhiteSpace($value)) {
               return ""
@@ -152,12 +139,11 @@ jobs:
             return ($value -replace "`r|`n", "").Trim()
           }
 
-          $id = $env:PACKAGE_IDENTIFIER
-          $publisher = $env:PACKAGE_PUBLISHER
-          $packageName = Get-ValueOrDefault $env:PACKAGE_NAME "redis-windows"
-          $shortDescription = Get-ValueOrDefault $env:PACKAGE_SHORT_DESCRIPTION "Redis for Windows on MSYS2 runtime"
-          $license = Get-ValueOrDefault $env:PACKAGE_LICENSE "MIT"
-          $licenseUrl = Get-ValueOrDefault $env:PACKAGE_LICENSE_URL "https://github.com/taizod1024/redis-windows/blob/main/LICENSE"
+          $id = "taizod1024.redis-windows-fork"
+          $publisher = "taizod1024"
+          $shortDescription = "Redis for Windows on MSYS2 runtime"
+          $license = "MIT"
+          $licenseUrl = "https://github.com/taizod1024/redis-windows-fork/blob/main/LICENSE"
           $version = "${{ steps.release.outputs.version }}"
           $url = "${{ steps.release.outputs.asset_url }}"
 
@@ -238,7 +224,7 @@ jobs:
           $qId = Quote-Yaml $id
           $qVersion = Quote-Yaml $version
           $qPublisher = Quote-Yaml $publisher
-          $qPackageName = Quote-Yaml $packageName
+          $qPackageName = Quote-Yaml "redis-windows-fork"
           $qShortDescription = Quote-Yaml $shortDescription
           $qLicense = Quote-Yaml $license
           $qLicenseUrl = Quote-Yaml $licenseUrl
