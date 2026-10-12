@@ -105,11 +105,105 @@ jobs:
       - name: Update winget package
         env:
           WINGET_TOKEN: ${{ secrets.WINGET_GITHUB_TOKEN || secrets.GH_PAT }}
+        shell: pwsh
         run: |
+          function Normalize-Token([string]$value) {
+            if ([string]::IsNullOrWhiteSpace($value)) {
+              return ""
+            }
+            return ($value -replace "`r|`n", "").Trim()
+          }
+
           $version = "${{ steps.release.outputs.version }}"
           $url = "${{ steps.release.outputs.asset_url }}"
+          $token = Normalize-Token $env:WINGET_TOKEN
 
-          .\wingetcreate.exe update --token $env:WINGET_TOKEN `
+          if ([string]::IsNullOrWhiteSpace($token)) {
+            throw "No GitHub token is available for winget submission."
+          }
+
+          if ($token -notmatch '^[A-Za-z0-9_]+$') {
+            throw "GitHub token contains invalid characters."
+          }
+
+          Write-Output "Submitting to winget: taizod1024.redis-windows-fork $version"
+          Write-Output "Installer URL: $url"
+
+          .\wingetcreate.exe update --token $token `
             --urls $url `
             --version $version `
             taizod1024.redis-windows-fork
+
+          if ($LASTEXITCODE -eq 0) {
+            Write-Output "Updated existing package successfully."
+            exit 0
+          }
+
+          Write-Output "Package update failed. Trying first-time package registration flow..."
+
+          $packageName = "redis-windows-fork"
+          $publisher = "taizod1024"
+          $id = "taizod1024.redis-windows-fork"
+          $shortDescription = "Redis for Windows (MSYS2-only fork)"
+          $license = "BSD-3-Clause"
+          $licenseUrl = "https://github.com/redis-windows/redis-windows/blob/main/LICENSE"
+
+          $manifestDir = Join-Path $pwd "winget-manifests"
+          if (Test-Path $manifestDir) {
+            Remove-Item -Path $manifestDir -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $manifestDir | Out-Null
+
+          $versionDir = Join-Path $manifestDir "manifests" "t" "$publisher" "$packageName" "$version"
+          New-Item -ItemType Directory -Path $versionDir -Force | Out-Null
+
+          $installerPath = Join-Path $versionDir "$packageName.installer.yaml"
+          @(
+            "PackageIdentifier: $id"
+            "PackageVersion: $version"
+            "PackageLocale: en-US"
+            "Installers:"
+            "- Architecture: x64"
+            "  InstallerUrl: $url"
+            "  InstallerType: zip"
+            "ManifestType: installer"
+            "ManifestVersion: 1.0.0"
+          ) -join "`n" | Out-File -FilePath $installerPath -Encoding utf8
+
+          $defaultPath = Join-Path $versionDir "$packageName.yaml"
+          @(
+            "PackageIdentifier: $id"
+            "PackageVersion: $version"
+            "DefaultLocale: en-US"
+            "ManifestType: version"
+            "ManifestVersion: 1.0.0"
+          ) -join "`n" | Out-File -FilePath $defaultPath -Encoding utf8
+
+          $localePath = Join-Path $versionDir "$packageName.locale.en-US.yaml"
+          @(
+            "PackageIdentifier: $id"
+            "PackageVersion: $version"
+            "PackageLocale: en-US"
+            "Publisher: $publisher"
+            "PublisherUrl: https://github.com/$publisher"
+            "PublisherSupportUrl: https://github.com/${{ github.repository }}/issues"
+            "PackageName: redis-windows-fork"
+            "PackageUrl: https://github.com/${{ github.repository }}"
+            "License: $license"
+            "LicenseUrl: $licenseUrl"
+            "ShortDescription: $shortDescription"
+            "ManifestType: defaultLocale"
+            "ManifestVersion: 1.0.0"
+          ) -join "`n" | Out-File -FilePath $localePath -Encoding utf8
+
+          Write-Output "Created manifest files in $manifestDir"
+
+          $manifestPath = Join-Path $manifestDir "manifests"
+          Write-Output "Submitting manifests from: $manifestPath"
+
+          # Validate manifest directory structure
+          if (-not (Test-Path $manifestPath)) {
+            throw "Manifest directory does not exist: $manifestPath"
+          }
+
+          .\wingetcreate.exe submit "$manifestPath" --token $token
