@@ -23,7 +23,7 @@ on:
 
 jobs:
   build-redis:
-    uses: ./.github/workflows/build-redis.yml
+    uses: ./.github/workflows/build-winget.yml
     with:
       use_latest_tag: ${{ inputs.use_latest_tag }}
       release_version: ${{ inputs.tag_name }}
