@@ -1,4 +1,4 @@
-name: Build winget
+name: Build winget (manual)
 
 on:
   workflow_dispatch:
@@ -21,12 +21,18 @@ on:
         default: false
         type: boolean
 
+permissions:
+  contents: write
+
 jobs:
-  build-redis:
-    uses: ./.github/workflows/build-winget-core.yml
+  build:
+    uses: ./.github/workflows/winget-core.yml
     with:
       use_latest_tag: ${{ inputs.use_latest_tag }}
       release_version: ${{ inputs.tag_name }}
       make_latest: ${{ inputs.make_latest }}
+      prerelease: ${{ inputs.prerelease }}
+      skip_publish: true
+    secrets: inherit
       prerelease: ${{ inputs.prerelease }}
     secrets: inherit
