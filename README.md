@@ -1,6 +1,6 @@
 # Redis for Windows (Fork)
 
-[![Build](https://github.com/taizod1024/redis-windows-fork/actions/workflows/manual-redis.yml/badge.svg)](https://github.com/taizod1024/redis-windows-fork/actions/workflows/check-and-build-daily.yml)
+[![Build](https://github.com/taizod1024/redis-windows-fork/actions/workflows/check-and-build-daily.yml/badge.svg)](https://github.com/taizod1024/redis-windows-fork/actions/workflows/check-and-build-daily.yml)
 [![Release](https://img.shields.io/github/v/release/taizod1024/redis-windows-fork)](https://github.com/taizod1024/redis-windows-fork/releases)
 
 Forked from [redis-windows/redis-windows](https://github.com/redis-windows/redis-windows).
