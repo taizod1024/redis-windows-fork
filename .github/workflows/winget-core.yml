@@ -264,7 +264,7 @@ jobs:
     needs: release
     runs-on: windows-latest
     env:
-      WINGETCREATE_VERSION: 1.12.8.0
+      WINGETCREATE_VERSION: 1.12.13.0
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
