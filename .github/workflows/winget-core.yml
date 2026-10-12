@@ -1,4 +1,4 @@
-name: Build winget (core)
+name: Winget core
 
 on:
   workflow_call:
