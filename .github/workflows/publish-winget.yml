@@ -1,0 +1,114 @@
+name: Publish to winget (manual)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    env:
+      WINGETCREATE_VERSION: 1.12.8.0
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Resolve release asset URL
+        id: release
+        run: |
+          function Get-ReleaseByTag([string]$candidateTag) {
+            $releaseApiUrl = "https://api.github.com/repos/${{ github.repository }}/releases/tags/$candidateTag"
+            return Invoke-RestMethod -Headers @{
+              Authorization = "Bearer $env:GH_TOKEN"
+              "User-Agent" = "redis-windows-fork-winget-publish"
+            } -Uri $releaseApiUrl
+          }
+
+          # Get latest release
+          $releasesUrl = "https://api.github.com/repos/${{ github.repository }}/releases"
+          $releases = Invoke-RestMethod -Headers @{
+            Authorization = "Bearer $env:GH_TOKEN"
+            "User-Agent" = "redis-windows-fork-winget-publish"
+          } -Uri $releasesUrl
+
+          if (-not $releases -or $releases.Count -eq 0) {
+            throw "No releases found."
+          }
+
+          $latest = $releases | Select-Object -First 1
+          $latestVersion = $latest.tag_name
+
+          $tagsToTry = @($latestVersion)
+          if ($latestVersion.StartsWith('v')) {
+            $tagsToTry += $latestVersion.TrimStart('v')
+          }
+          else {
+            $tagsToTry += "v$latestVersion"
+          }
+
+          $event = $null
+          foreach ($candidateTag in $tagsToTry) {
+            try {
+              $event = Get-ReleaseByTag $candidateTag
+              break
+            }
+            catch {
+              $statusCode = $null
+              try {
+                $statusCode = [int]$_.Exception.Response.StatusCode
+              }
+              catch {
+              }
+
+              if ($statusCode -and $statusCode -ne 404) {
+                throw "Release tag lookup failed for '$candidateTag' with status ${statusCode}: $($_.Exception.Message)"
+              }
+
+              Write-Output "Release tag lookup failed for '$candidateTag'. Trying next candidate..."
+            }
+          }
+
+          if (-not $event) {
+            throw "Unable to find release for version '$latestVersion'."
+          }
+
+          $tag = $event.tag_name
+          $assetUrl = $null
+          if ($event.assets) {
+            $asset = $event.assets | Where-Object { $_.name -like "*.exe" -or $_.name -like "*.zip" } | Select-Object -First 1
+            if ($asset) {
+              $assetUrl = $asset.browser_download_url
+            }
+          }
+
+          if (-not $assetUrl) {
+            throw "Unable to find a downloadable asset in release '$tag'."
+          }
+
+          Write-Output "version=$tag" >> $env:GITHUB_OUTPUT
+          Write-Output "asset_url=$assetUrl" >> $env:GITHUB_OUTPUT
+          Write-Output "Found release asset: $assetUrl"
+
+      - name: Install wingetcreate
+        run: |
+          $version = $env:WINGETCREATE_VERSION
+          $downloadUrl = "https://github.com/microsoft/winget-create/releases/download/v${version}/wingetcreate.exe"
+          Invoke-WebRequest -Uri $downloadUrl -OutFile "wingetcreate.exe"
+          Write-Output "$(Get-Location)" | Add-Content $env:GITHUB_PATH
+
+      - name: Update winget package
+        run: |
+          $assetUrl = "${{ steps.release.outputs.asset_url }}"
+          $version = "${{ steps.release.outputs.version }}"
+
+          & wingetcreate.exe update --token $env:GH_TOKEN `
+            --urls $assetUrl `
+            --version $version `
+            taizod1024.redis-windows-fork

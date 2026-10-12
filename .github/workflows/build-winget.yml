@@ -34,5 +34,3 @@ jobs:
       prerelease: ${{ inputs.prerelease }}
       skip_publish: true
     secrets: inherit
-      prerelease: ${{ inputs.prerelease }}
-    secrets: inherit
