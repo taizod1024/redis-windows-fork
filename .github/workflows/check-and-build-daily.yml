@@ -180,4 +180,4 @@ jobs:
           & wingetcreate.exe update --token ${{ secrets.GITHUB_TOKEN }} `
             --urls $assetUrl `
             --version ${tag#v} `
-            taizod1024.redis-windows-msys2
+            taizod1024.redis-windows-fork
