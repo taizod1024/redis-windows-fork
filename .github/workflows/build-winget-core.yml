@@ -1,4 +1,4 @@
-name: Build Redis Core
+name: Build winget (core)
 
 on:
   workflow_call:

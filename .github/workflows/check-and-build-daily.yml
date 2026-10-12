@@ -1,4 +1,4 @@
-name: Daily Check and Build Redis
+name: Daily Check and Build
 
 on:
   schedule:

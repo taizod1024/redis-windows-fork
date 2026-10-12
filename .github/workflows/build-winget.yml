@@ -1,4 +1,4 @@
-name: Build Redis
+name: Build winget
 
 on:
   workflow_dispatch:
