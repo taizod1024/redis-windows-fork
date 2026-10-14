@@ -2,6 +2,12 @@ name: Publish winget (manual)
 
 on:
   workflow_dispatch:
+    inputs:
+      replace_existing_version:
+        description: "Replace the existing latest manifest version (for correcting its installer hash)"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -129,10 +135,19 @@ jobs:
           Write-Output "Submitting to winget: taizod1024.redis-windows-fork $version"
           Write-Output "Installer URL: $url"
 
-          .\wingetcreate.exe update --token $token `
-            --urls $url `
-            --version $version `
-            taizod1024.redis-windows-fork
+          $updateArgs = @(
+            "update"
+            "--token", $token
+            "--urls", $url
+            "--version", $version
+            "taizod1024.redis-windows-fork"
+            "--submit"
+          )
+          if ("${{ inputs.replace_existing_version }}" -eq "true") {
+            $updateArgs += "--replace"
+          }
+
+          & .\wingetcreate.exe @updateArgs
 
           if ($LASTEXITCODE -eq 0) {
             Write-Output "Updated existing package successfully."
