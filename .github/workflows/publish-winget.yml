@@ -2,12 +2,6 @@ name: Publish winget (manual)
 
 on:
   workflow_dispatch:
-    inputs:
-      replace_existing_version:
-        description: "Replace the existing latest manifest version (for correcting its installer hash)"
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: read
@@ -143,9 +137,6 @@ jobs:
             "taizod1024.redis-windows-fork"
             "--submit"
           )
-          if ("${{ inputs.replace_existing_version }}" -eq "true") {
-            $updateArgs += "--replace"
-          }
 
           & .\wingetcreate.exe @updateArgs
 
@@ -172,43 +163,67 @@ jobs:
           $versionDir = Join-Path $manifestDir "manifests" "t" "$publisher" "$packageName" "$version"
           New-Item -ItemType Directory -Path $versionDir -Force | Out-Null
 
+          $installerArchive = Join-Path $env:RUNNER_TEMP "$id-$version.zip"
+          Invoke-WebRequest -Uri $url -OutFile $installerArchive
+          $installerSha256 = (Get-FileHash -LiteralPath $installerArchive -Algorithm SHA256).Hash.ToUpperInvariant()
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zip = [System.IO.Compression.ZipFile]::OpenRead($installerArchive)
+          try {
+            $serverPattern = "(?i)(^|/)redis-server\.exe$"
+            $serverEntries = @($zip.Entries | Where-Object { $_.FullName -match $serverPattern })
+            if ($serverEntries.Count -ne 1) {
+              throw "Expected exactly one redis-server.exe entry in the package archive; found $($serverEntries.Count)."
+            }
+            $nestedInstallerPath = $serverEntries[0].FullName.Replace('/', '\')
+          }
+          finally {
+            $zip.Dispose()
+          }
+
           $installerPath = Join-Path $versionDir "$id.installer.yaml"
           @(
+            "# yaml-language-server: `$schema=https://aka.ms/winget-manifest.installer.1.12.0.schema.json"
             "PackageIdentifier: $id"
             "PackageVersion: $version"
-            "PackageLocale: en-US"
             "Installers:"
             "- Architecture: x64"
             "  InstallerUrl: $url"
+            "  InstallerSha256: $installerSha256"
             "  InstallerType: zip"
+            "  NestedInstallerType: portable"
+            "  NestedInstallerFiles:"
+            "    - RelativeFilePath: $nestedInstallerPath"
+            "      PortableCommandAlias: redis-server"
             "ManifestType: installer"
-            "ManifestVersion: 1.6.0"
+            "ManifestVersion: 1.12.0"
           ) -join "`n" | Out-File -FilePath $installerPath -Encoding utf8
 
           $defaultPath = Join-Path $versionDir "$id.yaml"
           @(
+            "# yaml-language-server: `$schema=https://aka.ms/winget-manifest.version.1.12.0.schema.json"
             "PackageIdentifier: $id"
             "PackageVersion: $version"
             "DefaultLocale: en-US"
             "ManifestType: version"
-            "ManifestVersion: 1.6.0"
+            "ManifestVersion: 1.12.0"
           ) -join "`n" | Out-File -FilePath $defaultPath -Encoding utf8
 
           $localePath = Join-Path $versionDir "$id.locale.en-US.yaml"
           @(
+            "# yaml-language-server: `$schema=https://aka.ms/winget-manifest.defaultLocale.1.12.0.schema.json"
             "PackageIdentifier: $id"
             "PackageVersion: $version"
             "PackageLocale: en-US"
             "Publisher: $publisher"
             "PublisherUrl: https://github.com/$publisher"
             "PublisherSupportUrl: https://github.com/${{ github.repository }}/issues"
-            "PackageName: redis-windows-fork"
+            "PackageName: redis-windows"
             "PackageUrl: https://github.com/${{ github.repository }}"
             "License: $license"
             "LicenseUrl: $licenseUrl"
             "ShortDescription: $shortDescription"
             "ManifestType: defaultLocale"
-            "ManifestVersion: 1.6.0"
+            "ManifestVersion: 1.12.0"
           ) -join "`n" | Out-File -FilePath $localePath -Encoding utf8
 
           Write-Output "Created manifest files in $manifestDir"
@@ -226,3 +241,6 @@ jobs:
           }
 
           .\wingetcreate.exe submit "$manifestPath" --token $token
+          if ($LASTEXITCODE -ne 0) {
+            throw "wingetcreate failed to submit the recreated package manifest."
+          }
