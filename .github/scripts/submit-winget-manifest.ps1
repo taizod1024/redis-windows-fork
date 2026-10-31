@@ -131,26 +131,7 @@ if ($installerManifest -notmatch "(?m)^  Scope: user\r?$" -or $installerManifest
   throw "The installer manifest must include both user and machine scopes."
 }
 
-$manifestApiUrl = "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/$publisherInitial/$publisher/$packageIdentifierName/$Version"
-$versionAlreadyExists = $false
-try {
-  Invoke-RestMethod -Headers @{
-    Authorization = "Bearer $Token"
-    "User-Agent" = "redis-windows-fork-winget-publish"
-  } -Uri $manifestApiUrl | Out-Null
-  $versionAlreadyExists = $true
-}
-catch {
-  $statusCode = [int]$_.Exception.Response.StatusCode
-  if ($statusCode -ne 404) {
-    throw "Unable to check whether winget version '$Version' already exists: $($_.Exception.Message)"
-  }
-}
-
 $submitArguments = @("submit", $versionDirectory, "--token", $Token, "--no-open")
-if ($versionAlreadyExists) {
-  $submitArguments += @("--replace", $Version)
-}
 
 & $WingetCreatePath @submitArguments
 if ($LASTEXITCODE -ne 0) {
