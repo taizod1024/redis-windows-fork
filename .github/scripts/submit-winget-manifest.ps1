@@ -147,11 +147,10 @@ catch {
   }
 }
 
-$submitArguments = @("submit", "--token", $Token, "--no-open")
+$submitArguments = @("submit", $versionDirectory, "--token", $Token, "--no-open")
 if ($versionAlreadyExists) {
   $submitArguments += @("--replace", $Version)
 }
-$submitArguments += $versionDirectory
 
 & $WingetCreatePath @submitArguments
 if ($LASTEXITCODE -ne 0) {
