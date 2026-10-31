@@ -127,7 +127,7 @@ foreach ($fileName in $manifestFiles.Keys) {
   [System.IO.File]::WriteAllText($filePath, $manifestFiles[$fileName], $encoding)
 }
 
-if ($installerManifest -notmatch "(?m)^  Scope: user$" -or $installerManifest -notmatch "(?m)^  Scope: machine$") {
+if ($installerManifest -notmatch "(?m)^  Scope: user\r?$" -or $installerManifest -notmatch "(?m)^  Scope: machine\r?$") {
   throw "The installer manifest must include both user and machine scopes."
 }
 
