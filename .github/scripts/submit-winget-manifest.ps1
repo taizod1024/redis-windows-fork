@@ -16,6 +16,9 @@ param(
 )
 
 $manifestRoot = Join-Path $env:RUNNER_TEMP "winget-manifest"
+if ([string]::IsNullOrWhiteSpace($Token)) {
+  throw "No GitHub token is available for winget submission."
+}
 if (Test-Path $manifestRoot) {
   Remove-Item -Path $manifestRoot -Recurse -Force
 }
@@ -46,75 +49,111 @@ finally {
   $archive.Dispose()
 }
 
-$updateArguments = @(
-  "update",
-  $PackageId,
-  "--token",
-  $Token,
-  "--urls",
-  "$InstallerUrl|x64|user",
-  "$InstallerUrl|x64|machine",
-  "--version",
-  $Version,
-  "--out",
-  $outputDirectory
-)
-& $WingetCreatePath @updateArguments
-if ($LASTEXITCODE -ne 0) {
-  throw "wingetcreate update failed with exit code $LASTEXITCODE."
+$separatorIndex = $PackageId.IndexOf(".")
+if ($separatorIndex -lt 1 -or $separatorIndex -eq $PackageId.Length - 1) {
+  throw "PackageId must contain a publisher and package name separated by a period."
 }
 
-$installerManifests = @(Get-ChildItem -Path $outputDirectory -Filter "*.installer.yaml" -Recurse)
-if ($installerManifests.Count -ne 1) {
-  throw "Expected one installer manifest, found $($installerManifests.Count)."
-}
+$publisher = $PackageId.Substring(0, $separatorIndex)
+$packageIdentifierName = $PackageId.Substring($separatorIndex + 1)
+$publisherInitial = $publisher.Substring(0, 1).ToLowerInvariant()
+$packageName = "redis-windows"
+$installerSha256 = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToUpperInvariant()
 
-$installerManifest = $installerManifests[0]
-$content = [System.IO.File]::ReadAllText($installerManifest.FullName)
-if ($content -notmatch "(?m)^InstallerType:\s*zip\s*$") {
-  throw "The generated manifest is not a ZIP installer."
-}
-if ($content -notmatch "(?m)^NestedInstallerType:\s*portable\s*$") {
-  throw "The generated manifest is not a portable ZIP manifest."
-}
+$versionDirectory = Join-Path $outputDirectory "manifests"
+$versionDirectory = Join-Path $versionDirectory $publisherInitial
+$versionDirectory = Join-Path $versionDirectory $publisher
+$versionDirectory = Join-Path $versionDirectory $packageIdentifierName
+$versionDirectory = Join-Path $versionDirectory $Version
+New-Item -ItemType Directory -Path $versionDirectory -Force | Out-Null
 
-$nestedInstallerFiles = @"
+$installerManifest = @"
+# yaml-language-server: `$schema=https://aka.ms/winget-manifest.installer.1.12.0.schema.json
+PackageIdentifier: $PackageId
+PackageVersion: $Version
+InstallerType: zip
+NestedInstallerType: portable
 NestedInstallerFiles:
 - RelativeFilePath: redis-server.exe
   PortableCommandAlias: redis-server
+ArchiveBinariesDependOnPath: true
+Installers:
+- Architecture: x64
+  Scope: user
+  InstallerUrl: $InstallerUrl
+  InstallerSha256: $installerSha256
+- Architecture: x64
+  Scope: machine
+  InstallerUrl: $InstallerUrl
+  InstallerSha256: $installerSha256
+ManifestType: installer
+ManifestVersion: 1.12.0
 "@
-$nestedInstallerPattern = "(?ms)^NestedInstallerFiles:\r?\n.*?(?=^Installers:)"
-if ($content -match $nestedInstallerPattern) {
-  $content = [regex]::Replace($content, $nestedInstallerPattern, "$nestedInstallerFiles`r`n", 1)
+
+$versionManifest = @"
+# yaml-language-server: `$schema=https://aka.ms/winget-manifest.version.1.12.0.schema.json
+PackageIdentifier: $PackageId
+PackageVersion: $Version
+DefaultLocale: en-US
+ManifestType: version
+ManifestVersion: 1.12.0
+"@
+
+$localeManifest = @"
+# yaml-language-server: `$schema=https://aka.ms/winget-manifest.defaultLocale.1.12.0.schema.json
+PackageIdentifier: $PackageId
+PackageVersion: $Version
+PackageLocale: en-US
+Publisher: $publisher
+PublisherUrl: https://github.com/$publisher
+PublisherSupportUrl: https://github.com/taizod1024/redis-windows-fork/issues
+PackageName: $packageName
+PackageUrl: https://github.com/taizod1024/redis-windows-fork
+License: MIT
+LicenseUrl: https://github.com/redis-windows/redis-windows/blob/main/LICENSE
+ShortDescription: Redis for Windows on MSYS2 runtime
+ManifestType: defaultLocale
+ManifestVersion: 1.12.0
+"@
+
+$manifestFiles = @{
+  "$PackageId.installer.yaml" = $installerManifest
+  "$PackageId.yaml" = $versionManifest
+  "$PackageId.locale.en-US.yaml" = $localeManifest
 }
-elseif ($content -match "(?m)^Installers:") {
-  $content = [regex]::Replace($content, "(?m)^Installers:", "$nestedInstallerFiles`r`nInstallers:", 1)
-}
-else {
-  throw "The generated manifest has no Installers section."
+$encoding = [System.Text.UTF8Encoding]::new($false)
+foreach ($fileName in $manifestFiles.Keys) {
+  $filePath = Join-Path $versionDirectory $fileName
+  [System.IO.File]::WriteAllText($filePath, $manifestFiles[$fileName], $encoding)
 }
 
-if ($content -match "(?m)^ArchiveBinariesDependOnPath:\s*.*$") {
-  $content = [regex]::Replace($content, "(?m)^ArchiveBinariesDependOnPath:\s*.*$", "ArchiveBinariesDependOnPath: true")
-}
-else {
-  $content = [regex]::Replace($content, "(?m)^ManifestType:", "ArchiveBinariesDependOnPath: true`r`nManifestType:", 1)
+if ($installerManifest -notmatch "(?m)^  Scope: user$" -or $installerManifest -notmatch "(?m)^  Scope: machine$") {
+  throw "The installer manifest must include both user and machine scopes."
 }
 
-if ($content -notmatch "(?m)^\s*Scope:\s*user\s*$") {
-  throw "The generated manifest is missing the user-scope installer."
+$manifestApiUrl = "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/$publisherInitial/$publisher/$packageIdentifierName/$Version"
+$versionAlreadyExists = $false
+try {
+  Invoke-RestMethod -Headers @{
+    Authorization = "Bearer $Token"
+    "User-Agent" = "redis-windows-fork-winget-publish"
+  } -Uri $manifestApiUrl | Out-Null
+  $versionAlreadyExists = $true
 }
-if ($content -notmatch "(?m)^\s*Scope:\s*machine\s*$") {
-  throw "The generated manifest is missing the machine-scope installer."
+catch {
+  $statusCode = [int]$_.Exception.Response.StatusCode
+  if ($statusCode -ne 404) {
+    throw "Unable to check whether winget version '$Version' already exists: $($_.Exception.Message)"
+  }
 }
 
-[System.IO.File]::WriteAllText(
-  $installerManifest.FullName,
-  $content,
-  [System.Text.UTF8Encoding]::new($false)
-)
+$submitArguments = @("submit", "--token", $Token, "--no-open")
+if ($versionAlreadyExists) {
+  $submitArguments += @("--replace", $Version)
+}
+$submitArguments += $versionDirectory
 
-& $WingetCreatePath submit --token $Token --no-open $installerManifest.DirectoryName
+& $WingetCreatePath @submitArguments
 if ($LASTEXITCODE -ne 0) {
   throw "wingetcreate submit failed with exit code $LASTEXITCODE."
 }
