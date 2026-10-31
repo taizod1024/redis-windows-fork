@@ -23,6 +23,38 @@ Use MSYS2 POSIX paths (`/c/...`, `/d/...`) on the command line.
 redis-server.exe /c/config/redis.conf --dir /d/data --port 6379
 ```
 
+### Install with winget
+
+The ZIP contents are extracted directly into the selected directory. winget adds that directory to the PATH for the selected scope so the bundled MSYS2 runtime DLLs are found.
+
+For all users, install to a fixed machine-wide directory:
+
+```powershell
+winget install --id taizod1024.redis-windows-fork --exact --scope machine --location "C:\Program Files\Redis for Windows"
+```
+
+Use the same location when upgrading:
+
+```powershell
+winget upgrade --id taizod1024.redis-windows-fork --exact --scope machine --location "C:\Program Files\Redis for Windows"
+```
+
+For the current user only, install without administrator privileges:
+
+```powershell
+winget install --id taizod1024.redis-windows-fork --exact --scope user --location "$env:LOCALAPPDATA\Programs\Redis for Windows"
+```
+
+Use the same location when upgrading:
+
+```powershell
+winget upgrade --id taizod1024.redis-windows-fork --exact --scope user --location "$env:LOCALAPPDATA\Programs\Redis for Windows"
+```
+
+Passing the same `--location` during upgrades keeps the installation path unchanged across Redis versions. If `--location` is omitted, winget uses its default package directory for the selected scope.
+
+These commands require the updated winget manifest and ZIP layout to be published. Existing installations must be uninstalled and reinstalled once to move to this location.
+
 ## Technical Details
 
 - Build toolchain: MSYS2

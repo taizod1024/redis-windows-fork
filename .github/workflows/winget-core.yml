@@ -155,7 +155,8 @@ jobs:
 
           cp /usr/bin/msys-2.0.dll /usr/bin/msys-crypto-3.dll /usr/bin/msys-ssl-3.dll /usr/bin/msys-gcc_s-seh-1.dll /usr/bin/msys-stdc++-6.dll ${{ env.REDIS_DIST }}-msys2
           sed -i 's/pidfile \/var\/run/pidfile ./' ${{ env.REDIS_DIST }}-msys2/redis.conf
-          zip -q -r ${{ env.REDIS_DIST }}-msys2.zip ${{ env.REDIS_DIST }}-msys2
+          cd ${{ env.REDIS_DIST }}-msys2
+          zip -q -r ../${{ env.REDIS_DIST }}-msys2.zip *
         shell: msys2 {0}
 
       - name: Verify MSYS2 version
@@ -196,8 +197,14 @@ jobs:
           }
 
           Expand-Archive -Path ".\${{ env.REDIS_DIST }}-msys2.zip" -DestinationPath $extractDir
-          $packageRoot = Join-Path $extractDir "${{ env.REDIS_DIST }}-msys2"
+          $packageRoot = $extractDir
           $requiredFiles = @(
+            "redis-server.exe",
+            "msys-2.0.dll",
+            "msys-crypto-3.dll",
+            "msys-ssl-3.dll",
+            "msys-gcc_s-seh-1.dll",
+            "msys-stdc++-6.dll",
             "LICENCES/redis/LICENSE.txt",
             "LICENCES/redis/REDISCONTRIBUTIONS.txt",
             "LICENCES/msys2-runtime/COPYING",
@@ -333,7 +340,7 @@ jobs:
           $tag = $event.tag_name
           $assetUrl = $null
           if ($event.assets) {
-            $asset = $event.assets | Where-Object { $_.name -like "*.exe" -or $_.name -like "*.zip" } | Select-Object -First 1
+            $asset = $event.assets | Where-Object { $_.name -like "*.zip" } | Select-Object -First 1
             if ($asset) {
               $assetUrl = $asset.browser_download_url
             }
@@ -357,10 +364,9 @@ jobs:
         env:
           WINGET_TOKEN: ${{ secrets.WINGET_GITHUB_TOKEN || secrets.GH_PAT }}
         run: |
-          $version = "${{ steps.release.outputs.version }}"
-          $url = "${{ steps.release.outputs.asset_url }}"
-
-          .\wingetcreate.exe update --token $env:WINGET_TOKEN `
-            --urls $url `
-            --version $version `
-            taizod1024.redis-windows-fork
+          .\.github\scripts\submit-winget-manifest.ps1 `
+            -WingetCreatePath ".\wingetcreate.exe" `
+            -PackageId "taizod1024.redis-windows-fork" `
+            -Version "${{ steps.release.outputs.version }}" `
+            -InstallerUrl "${{ steps.release.outputs.asset_url }}" `
+            -Token $env:WINGET_TOKEN

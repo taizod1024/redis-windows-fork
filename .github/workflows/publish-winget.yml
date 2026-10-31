@@ -82,7 +82,7 @@ jobs:
           $tag = $event.tag_name
           $assetUrl = $null
           if ($event.assets) {
-            $asset = $event.assets | Where-Object { $_.name -like "*.exe" -or $_.name -like "*.zip" } | Select-Object -First 1
+            $asset = $event.assets | Where-Object { $_.name -like "*.zip" } | Select-Object -First 1
             if ($asset) {
               $assetUrl = $asset.browser_download_url
             }
@@ -106,10 +106,9 @@ jobs:
         env:
           WINGET_TOKEN: ${{ secrets.WINGET_GITHUB_TOKEN || secrets.GH_PAT }}
         run: |
-          $version = "${{ steps.release.outputs.version }}"
-          $url = "${{ steps.release.outputs.asset_url }}"
-
-          .\wingetcreate.exe update --token $env:WINGET_TOKEN `
-            --urls $url `
-            --version $version `
-            taizod1024.redis-windows-fork
+          .\.github\scripts\submit-winget-manifest.ps1 `
+            -WingetCreatePath ".\wingetcreate.exe" `
+            -PackageId "taizod1024.redis-windows-fork" `
+            -Version "${{ steps.release.outputs.version }}" `
+            -InstallerUrl "${{ steps.release.outputs.asset_url }}" `
+            -Token $env:WINGET_TOKEN
