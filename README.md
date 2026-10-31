@@ -17,15 +17,15 @@ Forked from [redis-windows/redis-windows](https://github.com/redis-windows/redis
 
 For baseline usage and context, refer to [redis-windows/redis-windows](https://github.com/redis-windows/redis-windows).
 
-Use MSYS2 POSIX paths (`/c/...`, `/d/...`) on the command line.
+Run the command from the Redis installation directory. Use MSYS2 POSIX paths (`/c/...`, `/d/...`) on the command line.
 
 ```cmd
-redis-server.exe /c/config/redis.conf --dir /d/data --port 6379
+.\redis-server.exe /c/config/redis.conf --dir /d/data --port 6379
 ```
 
 ### Install with winget
 
-The ZIP contents are extracted directly into the selected directory. winget adds that directory to the PATH for the selected scope so the bundled MSYS2 runtime DLLs are found.
+The ZIP contents are extracted directly into the selected directory. winget does not add that directory to the PATH. Run `redis-server.exe` from the installation directory or specify its full path.
 
 For all users, install to a fixed machine-wide directory:
 

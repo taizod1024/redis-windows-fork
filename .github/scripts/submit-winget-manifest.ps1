@@ -75,7 +75,7 @@ InstallerType: zip
 NestedInstallerType: portable
 NestedInstallerFiles:
 - RelativeFilePath: redis-server.exe
-ArchiveBinariesDependOnPath: true
+ArchiveBinariesDependOnPath: false
 Installers:
 - Architecture: x64
   Scope: user
